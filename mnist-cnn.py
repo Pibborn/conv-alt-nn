@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
+import matplotlib.pyplot as plt
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -25,6 +26,9 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
+parser.add_argument('--custom-model', type=bool, default=False,
+                    help='whether to use the custom cnn model')
+
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -97,7 +101,13 @@ class Net(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x)
 
-model = OtherNet()
+if args.custom_model:
+    print('Custom model.')
+    model = OtherNet()
+else:
+    print('Regular model.')
+    model = Net()
+
 if args.cuda:
     model.cuda()
 
@@ -105,6 +115,7 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
 def train(epoch):
     model.train()
+    loss_list = []
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -136,8 +147,11 @@ def test():
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
+    return test_loss
 
-
+loss_list = []
 for epoch in range(1, args.epochs + 1):
     train(epoch)
-    test()
+    loss_list.append(test())
+print(loss_list)
+plt.plot(loss_list)
