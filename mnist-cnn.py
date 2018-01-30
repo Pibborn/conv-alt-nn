@@ -7,8 +7,11 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
+import math
+from scipy.ndimage import correlate
+from scipy.signal import correlate2d
 
-# Training settings
+# handle script arguments
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
@@ -29,16 +32,17 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 feature_parser = parser.add_mutually_exclusive_group(required=False)
 feature_parser.add_argument('--custom', dest='custom_model', action='store_true')
 feature_parser.add_argument('--regular', dest='custom_model', action='store_false')
+parser.add_argument('--model-path', help='Saved model path')
 parser.set_defaults(custom_model=False)
-
 args = parser.parse_args()
+
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-
+# load and create data if needed
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 train_loader = torch.utils.data.DataLoader(
     datasets.MNIST('./mnist-data', train=True, download=True,
@@ -57,19 +61,20 @@ test_loader = torch.utils.data.DataLoader(
 class OtherNet(nn.Module):
     def __init__(self):
         super(OtherNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
-        self.conv2_list = []
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
+        self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
-            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=5, stride=1, padding=2))
+            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=3, stride=1, padding=2))
         self.conv2 = nn.Conv2d(150, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(500, 50)
+        self.fc1 = nn.Linear(512, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         a = torch.autograd.Variable(torch.ones(args.batch_size, 1, x.size()[2], x.size()[3]))
         first = True
+        print(x.shape)
         for i in range(5):
             for xi in x.split(1, dim=1):
                 xi_a = F.relu(self.conv2_list[i](xi))
@@ -78,11 +83,14 @@ class OtherNet(nn.Module):
                     first = False
                 else:
                     a = torch.cat((a, xi_a), 1)
+        print(a.shape)
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
-        x = x.view(-1, 500)
+        x = x.view(-1, 512)
+        print(x.shape)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
+        sys.exit(1)
         return F.log_softmax(x)
 
 class Net(nn.Module):
@@ -103,17 +111,7 @@ class Net(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x)
 
-if args.custom_model:
-    print('Custom model.')
-    model = OtherNet()
-else:
-    print('Regular model.')
-    model = Net()
 
-if args.cuda:
-    model.cuda()
-
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
 def train(epoch):
     model.train()
@@ -151,13 +149,82 @@ def test():
         100. * correct / len(test_loader.dataset)))
     return test_loss
 
-loss_list = []
-for epoch in range(1, args.epochs + 1):
-    train(epoch)
-    loss_list.append(test())
-print(loss_list)
-if args.custom_model:
-    path = './custom-model.torch'
-else:
-    path = './regular-model.torch'
-torch.save(model.state_dict(), path)
+def plot_convmat(conv_mat_tensor, num_cols=5):
+    # assumes shape (num_mat, 1, h, w)
+    num_mat = conv_mat_tensor.shape[0]
+    num_rows = math.ceil(num_mat / num_cols)
+    fig = plt.figure(figsize=(num_cols,num_rows))
+    for idx, conv_mat in enumerate(conv_mat_tensor):
+        ax1 = fig.add_subplot(num_rows, num_cols, idx+1)
+        ax1.imshow(conv_mat.reshape((5, 5)), cmap='gray')
+        ax1.axis('off')
+        ax1.set_xticklabels([])
+        ax1.set_yticklabels([])
+
+    plt.subplots_adjust(wspace=0.1, hspace=0.1)
+    plt.show()
+
+def show_activations(conv_mat_tensor, image, num_cols=5):
+    num_mat = conv_mat_tensor.shape[0]
+    num_rows = math.ceil(num_mat / num_cols) + 1 # + 1 for original image
+    fig = plt.figure(figsize=(num_cols,num_rows))
+    for idx, conv_mat in enumerate(conv_mat_tensor):
+        ax1 = fig.add_subplot(num_rows+1, num_cols, idx+num_cols+1)
+        conv_mat = conv_mat.reshape((5, 5))
+        activation = None
+        #activation = correlate(image, conv_mat, output=activation, mode='constant')
+        activation = correlate2d(image, conv_mat, mode='valid')
+        ax1.imshow(activation, cmap='gray')
+        ax1.axis('off')
+        ax1.set_xticklabels([])
+        ax1.set_yticklabels([])
+
+    ax1 = fig.add_subplot(num_rows+1, num_cols, math.ceil(num_cols//2)+1)
+    ax1.imshow(image, cmap='gray')
+    ax1.axis('off')
+    ax1.set_xticklabels([])
+    ax1.set_yticklabels([])
+
+
+    plt.subplots_adjust(wspace=0.1, hspace=0.1)
+    plt.show()
+
+    
+        
+if __name__ == '__main__':
+    path = '/'
+    if args.custom_model:
+        print('Custom model.')
+        model = OtherNet()
+        path = './custom-model.torch'
+    else:
+        print('Regular model.')
+        model = Net()
+        path = './regular-model.torch'
+
+    if args.cuda:
+        model.cuda()
+
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+
+    if args.model_path == None:
+        # train a new model and save it
+        loss_list = []
+        for epoch in range(1, args.epochs + 1):
+            train(epoch)
+            loss_list.append(test())
+        print(loss_list)
+        torch.save(model.state_dict(), path)
+    else:
+        model.train()
+        model.load_state_dict(torch.load(args.model_path))
+        first_layer_weights = model.conv1.weight.data.numpy()
+        #plot_convmat(first_layer_weights)
+        for idx, (data, target) in enumerate(train_loader):
+            img = data[0].numpy().reshape((data[0].shape[1], data[0].shape[2]))
+            break
+        #de-normalize img -- seems unneeded though
+        #img += 0.13017
+        #img *= 0.3081
+        show_activations(first_layer_weights, img)
+
