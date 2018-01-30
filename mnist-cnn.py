@@ -26,8 +26,10 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
-parser.add_argument('--custom-model', type=bool, default=False,
-                    help='whether to use the custom cnn model')
+feature_parser = parser.add_mutually_exclusive_group(required=False)
+feature_parser.add_argument('--custom', dest='custom_model', action='store_true')
+feature_parser.add_argument('--regular', dest='custom_model', action='store_false')
+parser.set_defaults(custom_model=False)
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -154,4 +156,8 @@ for epoch in range(1, args.epochs + 1):
     train(epoch)
     loss_list.append(test())
 print(loss_list)
-plt.plot(loss_list)
+if args.custom_model:
+    path = './custom-model.torch'
+else:
+    path = './regular-model.torch'
+torch.save(model.state_dict(), path)
