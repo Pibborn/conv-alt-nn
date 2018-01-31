@@ -67,14 +67,13 @@ class OtherNet(nn.Module):
             self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=3, stride=1, padding=2))
         self.conv2 = nn.Conv2d(150, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(512, 50)
+        self.fc1 = nn.Linear(720, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         a = torch.autograd.Variable(torch.ones(args.batch_size, 1, x.size()[2], x.size()[3]))
         first = True
-        print(x.shape)
         for i in range(5):
             for xi in x.split(1, dim=1):
                 xi_a = F.relu(self.conv2_list[i](xi))
@@ -83,15 +82,13 @@ class OtherNet(nn.Module):
                     first = False
                 else:
                     a = torch.cat((a, xi_a), 1)
-        print(a.shape)
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
-        x = x.view(-1, 512)
-        print(x.shape)
+        x = x.view(-1, 720)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
-        sys.exit(1)
         return F.log_softmax(x)
+
 
 class Net(nn.Module):
     def __init__(self):
