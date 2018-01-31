@@ -153,7 +153,7 @@ def plot_convmat(conv_mat_tensor, num_cols=5):
     fig = plt.figure(figsize=(num_cols,num_rows))
     for idx, conv_mat in enumerate(conv_mat_tensor):
         ax1 = fig.add_subplot(num_rows, num_cols, idx+1)
-        ax1.imshow(conv_mat.reshape((5, 5)), cmap='gray')
+        ax1.imshow(conv_mat.reshape((conv_mat.shape[1], conv_mat.shape[2])), cmap='gray')
         ax1.axis('off')
         ax1.set_xticklabels([])
         ax1.set_yticklabels([])
@@ -167,7 +167,7 @@ def show_activations(conv_mat_tensor, image, num_cols=5):
     fig = plt.figure(figsize=(num_cols,num_rows))
     for idx, conv_mat in enumerate(conv_mat_tensor):
         ax1 = fig.add_subplot(num_rows+1, num_cols, idx+num_cols+1)
-        conv_mat = conv_mat.reshape((5, 5))
+        conv_mat = conv_mat.reshape((conv_mat.shape[1], conv_mat.shape[2]))
         activation = None
         #activation = correlate(image, conv_mat, output=activation, mode='constant')
         activation = correlate2d(image, conv_mat, mode='valid')
@@ -215,6 +215,7 @@ if __name__ == '__main__':
     else:
         model.train()
         model.load_state_dict(torch.load(args.model_path))
+        print(model)
         first_layer_weights = model.conv1.weight.data.numpy()
         #plot_convmat(first_layer_weights)
         for idx, (data, target) in enumerate(train_loader):
