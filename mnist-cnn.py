@@ -61,13 +61,13 @@ test_loader = torch.utils.data.DataLoader(
 class OtherNet(nn.Module):
     def __init__(self):
         super(OtherNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
-        self.conv2_list = []
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
+        self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
-            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=5, stride=1, padding=2))
+            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=3, stride=1, padding=2))
         self.conv2 = nn.Conv2d(150, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(500, 50)
+        self.fc1 = nn.Linear(720, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
@@ -83,11 +83,12 @@ class OtherNet(nn.Module):
                 else:
                     a = torch.cat((a, xi_a), 1)
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
-        x = x.view(-1, 500)
+        x = x.view(-1, 720)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
+
 
 class Net(nn.Module):
     def __init__(self):
