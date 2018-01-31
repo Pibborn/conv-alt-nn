@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import math
 from scipy.ndimage import correlate
 from scipy.signal import correlate2d
+from utils import plot_weight_symmetry
 
 # handle script arguments
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -32,7 +33,7 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 feature_parser = parser.add_mutually_exclusive_group(required=False)
 feature_parser.add_argument('--custom', dest='custom_model', action='store_true')
 feature_parser.add_argument('--regular', dest='custom_model', action='store_false')
-parser.add_argument('--model-path', help='Saved model path')
+parser.add_argument('--model-path', help='Saved model path. If not set, a new model will be trained')
 parser.set_defaults(custom_model=False)
 args = parser.parse_args()
 
@@ -89,6 +90,30 @@ class OtherNet(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x)
 
+    def forward_return_activations(self, x):
+        activation_list = []
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        activation_list.append(x[0][:][:])
+        a = torch.autograd.Variable(torch.ones(args.batch_size, 1, x.size()[2], x.size()[3]))
+        first = True
+        for i in range(5):
+            for xi in x.split(1, dim=1):
+                xi_a = F.relu(self.conv2_list[i](xi))
+                if first:
+                    a = xi_a
+                    first = False
+                else:
+                    a = torch.cat((a, xi_a), 1)
+        activation_list.append(a[0][:][:])
+        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
+        activation_list.append(x[0][:][:])
+        x = x.view(-1, 720)
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return activation_list
+
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -108,6 +133,17 @@ class Net(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x)
 
+    def forward_return_activations(self, x):
+        activation_list = []
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        activation_list.append(x[0][:][:])
+        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+        activation_list.append(x[0][:][:])
+        x = x.view(-1, 320)
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return activation_list
 
 
 def train(epoch):
@@ -186,7 +222,43 @@ def show_activations(conv_mat_tensor, image, num_cols=5):
     plt.subplots_adjust(wspace=0.1, hspace=0.1)
     plt.show()
 
-    
+def get_activations(model, image):
+    act_list = model.forward_return_activations(Variable(image.view(-1, 1, 28, 28)))
+    print(len(act_list))
+    fig = plt.figure(figsize=(len(act_list), 1))
+    for i, act in enumerate(act_list):
+        act = act[0][:][:]
+        print(act.shape)
+        ax1 = fig.add_subplot(1, len(act_list), i+1)
+        ax1.imshow(act.data.numpy(), cmap='gray')
+        ax1.axis('off')
+        ax1.set_xticklabels([])
+        ax1.set_yticklabels([])
+    plt.show()
+
+
+def get_all_conv_mat(model):
+    # for some reason the first module is the whole model
+    conv_mat_dict = {}
+    i = 1
+    for module in model.modules():
+        if 'conv' not in str(type(module)).lower():
+            continue
+        print(layer_to_str(module))
+        temp_list = []
+        weight_tensor = module.weight.data.numpy() # size: (in, out, w, h)
+        for out_channel in weight_tensor:
+            # in_channel size: (out, w, h)
+            for conv_mat in out_channel:
+                # conv_mat size: (w, h)
+                temp_list.append(conv_mat)
+        conv_mat_dict['conv'+str(i)] = temp_list
+        i += 1
+        plot_weight_symmetry(temp_list, 'sym-plots/conv'+str(i))
+    return conv_mat_dict
+
+def layer_to_str(module):
+    return 'Shape: {}, name: {}'.format(module.weight.shape, str(type(module)))
         
 if __name__ == '__main__':
     path = '/'
@@ -213,16 +285,17 @@ if __name__ == '__main__':
         print(loss_list)
         torch.save(model.state_dict(), path)
     else:
-        model.train()
         model.load_state_dict(torch.load(args.model_path))
-        print(model)
         first_layer_weights = model.conv1.weight.data.numpy()
         #plot_convmat(first_layer_weights)
         for idx, (data, target) in enumerate(train_loader):
-            img = data[0].numpy().reshape((data[0].shape[1], data[0].shape[2]))
+            #img = data[0].numpy().reshape((data[0].shape[1], data[0].shape[2]))
+            img = data[0]
             break
         #de-normalize img -- seems unneeded though
         #img += 0.13017
         #img *= 0.3081
-        show_activations(first_layer_weights, img)
+        #show_activations(first_layer_weights, img)
+        #get_all_conv_mat(model)
+        get_activations(model, img)
 
