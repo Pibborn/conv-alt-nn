@@ -115,3 +115,14 @@ dove 3 ed m sono iperparametri. il numero di mappe di attivazione/immagini in us
 * si può immaginare m come il numero di livelli convolutivi tradizionali (con input=1 e output=3) utilizzabili in una implementazione ingenua
 * in questo momento il codice non è parallelizzato
 
+## letteratura
+[XCeption](https://arxiv.org/pdf/1610.02357.pdf) - architettura proposta da Chollet. La sua idea è simile nella premessa: la mescolanza di feature
+che avviene nei layer convoluzionali classici è problematica. Lui propone un layer alternativo ("depthwise separable convolution") in realtà
+composto da due step convolutivi:
+1. una prima convoluzione simile alla nostra, in cui ogni slice del volume in input subisce una convoluzione indipendente; opzionalmente,
+un parametro 'depth multiplier' può creare più mappe di attivazioni in output;
+2. una seconda convoluzione, classica, in cui il filtro è fissato a dimensione 1x1.
+
+L'idea è che il primo step si occupi di modellare le *correlazioni spaziali* dell'input, mentre il secondo modellerà le *correlazioni tra i canali*.
+Questa è un'idea che ha sicuramente a che fare con la nostra, ma che non contiene direttamente la nostra idea centrale: implementare un layer *chiuso
+rispetto allo spazio delle immagini*. Certamente però il suo primo step coincide con quello che vorremmo fare noi sulle immagini greyscale
