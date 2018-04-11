@@ -224,16 +224,14 @@ def show_activations(conv_mat_tensor, image, num_cols=5):
 
 def get_activations(model, image):
     act_list = model.forward_return_activations(Variable(image.view(-1, 1, 28, 28)))
-    print(len(act_list))
-    fig = plt.figure(figsize=(len(act_list), 1))
-    for i, act in enumerate(act_list):
-        act = act[0][:][:]
-        print(act.shape)
-        ax1 = fig.add_subplot(1, len(act_list), i+1)
-        ax1.imshow(act.data.numpy(), cmap='gray')
-        ax1.axis('off')
-        ax1.set_xticklabels([])
-        ax1.set_yticklabels([])
+    for i, layer_act in enumerate(act_list): # numero layer
+        fig = plt.figure()
+        for j, act in enumerate(layer_act): # attivazioni in un layer
+            ax1 = fig.add_subplot(int(len(act_list[i])/5), 5,j+1)
+            ax1.imshow(act.data.numpy(), cmap='gray')
+            ax1.axis('off')
+            ax1.set_xticklabels([])
+            ax1.set_yticklabels([])
     plt.show()
 
 
@@ -259,7 +257,7 @@ def get_all_conv_mat(model):
 
 def layer_to_str(module):
     return 'Shape: {}, name: {}'.format(module.weight.shape, str(type(module)))
-        
+
 if __name__ == '__main__':
     path = '/'
     if args.custom_model:
@@ -292,10 +290,4 @@ if __name__ == '__main__':
             #img = data[0].numpy().reshape((data[0].shape[1], data[0].shape[2]))
             img = data[0]
             break
-        #de-normalize img -- seems unneeded though
-        #img += 0.13017
-        #img *= 0.3081
-        #show_activations(first_layer_weights, img)
-        #get_all_conv_mat(model)
         get_activations(model, img)
-
