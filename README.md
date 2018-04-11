@@ -111,10 +111,6 @@ secondo livello:
 
 dove 3 ed m sono iperparametri. il numero di mappe di attivazione/immagini in uscita sarà ```m*n*3```.
 
-## osservazioni
-* si può immaginare m come il numero di livelli convolutivi tradizionali (con input=1 e output=3) utilizzabili in una implementazione ingenua
-* in questo momento il codice non è parallelizzato
-
 ## letteratura
 [XCeption](https://arxiv.org/pdf/1610.02357.pdf) - architettura proposta da Chollet. La sua idea è simile nella premessa: la mescolanza di feature
 che avviene nei layer convoluzionali classici è problematica. Lui propone un layer alternativo ("depthwise separable convolution") in realtà
@@ -126,3 +122,28 @@ un parametro 'depth multiplier' può creare più mappe di attivazioni in output;
 L'idea è che il primo step si occupi di modellare le *correlazioni spaziali* dell'input, mentre il secondo modellerà le *correlazioni tra i canali*.
 Questa è un'idea che ha sicuramente a che fare con la nostra, ma che non contiene direttamente la nostra idea centrale: implementare un layer *chiuso
 rispetto allo spazio delle immagini*. Certamente però il suo primo step coincide con quello che vorremmo fare noi sulle immagini greyscale
+
+## esperimenti possibili
+* osservare che le mappe di attivazione (che in realtà sono immagini) rimangono più intellegibili più a lungo via via che si va in profondità rispetto
+ai layer conv classici
+* osservare che i filtri in cui si riconoscono delle feature sono di più rispetto ai layer conv classici. potrebbe essere utile avere dei filtri di
+dimensione più grande come in [Lee, Ng et al.](https://www.cs.princeton.edu/~rajeshr/papers/icml09-ConvolutionalDeepBeliefNetworks.pdf). si potrebbe
+provare ad usare questo livello convolutivo in una architettura tipo Conv DBN.
+* analizzare i filtri prodotti dal nostro layer e da quello classico con la trasformata di Hough generica. l'istogramma dei voti potrebbe risultare
+più chiaro nel nostro rispetto a quello classico
+
+## osservazioni
+* si può immaginare m come il numero di livelli convolutivi tradizionali (con input=1 e output=3) utilizzabili in una implementazione ingenua
+* in questo momento il codice non è parallelizzato
+* l'implementazione di GroupNet in models.py fa utilizzo del parametro groups in pytorch.nn.conv2d. questo NON implementa esattamente lo schema che 
+proponevamo prima, ma semplicemente utilizza un filtro per il primo slice in entrata, un altro per quello in seconda posizione e così via. quindi non c'è
+lo schema di "parameter sharing" che proponiamo di sopra, in cui (ad esempio) g11 filtra sia il primo slice di [1] che il primo di [n].
+* bisogna riflettere bene riguardo a come implementare esattamente il layer. lo scopo di avere un layer "chiuso rispetto alle immagini" è in realtà
+completamente soddisfatto dall'implementazione di GroupNet; questa però ha una sorta di bias interno che ricorda quello di cui parla Chollet - 
+la prima mappa di attivazione sarà filtrata sempre da una certa matrice dei pesi: quindi torniamo ad avere il problema di modellare la variabilità
+inter-canale, cosa che Chollet risolve tramite la convoluzione 1x1. La implementazione che proponiamo sopra in un certo senso la risolve
+tramite parameter sharing - g11 filtra sia il primo slice di [1] che il primo di [n].
+* ancora riguardo l'esatta implementazione: non è da escludere l'ipotesi in cui g11=g12=g13. questo potrebbe ricordare maggiormente quello che 
+avviene nella convoluzione classica. 
+* un'idea riguardo l'implementazione RGB: utilizzare una convoluzione 3D con stride in profondità = 3
+
