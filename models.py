@@ -8,7 +8,6 @@ from torch.autograd import Variable
 
 torch.manual_seed(10)
 
-
 # load and create data if needed
 train_loader = torch.utils.data.DataLoader(
     datasets.MNIST('./mnist-data', train=True, download=True,
@@ -59,8 +58,6 @@ class Net(nn.Module):
 class OtherNet(nn.Module):
     def __init__(self):
         super(OtherNet, self).__init__()
-        torch.manual_seed(10)
-
         self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
         self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
@@ -116,8 +113,6 @@ class OtherNet(nn.Module):
 class GroupNet(nn.Module):
     def __init__(self):
         super(GroupNet, self).__init__()
-        torch.manual_seed(10)
-
         self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
         self.conv2 = nn.Conv2d(10, 150, kernel_size=3, stride=1, padding=2, groups=10)
         self.conv3 = nn.Conv2d(150, 20, kernel_size=5)
@@ -134,6 +129,21 @@ class GroupNet(nn.Module):
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
+
+    def forward_return_activations(self, x):
+        activation_list = []
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        activation_list.append(x[0][:][:])
+        x = F.relu(self.conv2(x))
+        activation_list.append(x[0][:][:])
+        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        activation_list.append(x[0][:][:])
+        x = x.view(-1, 720)
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return activation_list
+
 
 def train(model, epoch):
     model.train()
@@ -169,17 +179,31 @@ def test(model):
         100. * correct / len(test_loader.dataset)))
     return test_loss
 
+def get_activations(model, image):
+    act_list = model.forward_return_activations(Variable(image.view(-1, 1, 28, 28)))
+    for i, layer_act in enumerate(act_list): # numero layer
+        fig = plt.figure()
+        for j, act in enumerate(layer_act): # attivazioni in un layer
+            ax1 = fig.add_subplot(int(len(act_list[i])/5), 5,j+1)
+            ax1.imshow(act.data.numpy(), cmap='gray')
+            ax1.axis('off')
+            ax1.set_xticklabels([])
+            ax1.set_yticklabels([])
+    plt.show()
+
+
 if __name__ == '__main__':
 
     model = GroupNet()
-    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    params = sum([np.prod(p.size()) for p in model_parameters])
-    print(params)
     optimizer = optim.SGD(model.parameters(), lr=0.01,
         momentum=0.5)
 
     for epoch in range(1, 10):
         train(model, epoch)
         loss_list.append(test(model))
-    print(loss_list)
-    torch.save(model.state_dict(), path)
+        torch.save(model.state_dict(), path)
+
+    for data, target in train_loader:
+        img = data[0]
+        break
+    get_activations(model, img)
