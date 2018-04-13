@@ -5,6 +5,7 @@ import torch.optim as optim
 import numpy as np
 from torchvision import datasets, transforms
 from torch.autograd import Variable
+import matplotlib.pyplot as plt
 
 torch.manual_seed(10)
 
@@ -22,6 +23,16 @@ test_loader = torch.utils.data.DataLoader(
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
     batch_size=8, shuffle=True)
+
+cifar_train_loader = torch.utils.data.DataLoader(
+    datasets.CIFAR10('./cifar-data', train=True,
+    download=True, transform=transforms.ToTensor()), batch_size=8, shuffle=True
+)
+
+cifar_test_loader = torch.utils.data.DataLoader(
+    datasets.CIFAR10('./cifar-data', train=False,
+    download=True, transform=transforms.ToTensor()), batch_size=8, shuffle=True
+)
 
 class Net(nn.Module):
     def __init__(self):
@@ -144,18 +155,68 @@ class GroupNet(nn.Module):
         x = self.fc2(x)
         return activation_list
 
+class GroupNetRGB(nn.Module):
+    def __init__(self):
+        super(GroupNetRGB, self).__init__()
+        self.conv1 = nn.Conv2d(3, 9, kernel_size=3, padding=0, groups=3, stride=1)
+        #for convmat in self.conv1.weight:
+        convmat = torch.zeros(self.conv1.weight.size())
+        convmat[:, :, 3//2, 3//2] = 1
+        self.conv1.weight = torch.nn.Parameter(convmat)
+        self.conv1.bias = torch.nn.Parameter(torch.zeros(self.conv1.bias.size()))
+        self.conv2 = nn.Conv2d(9, 27, kernel_size=3, stride=1, padding=2, groups=3)
+        self.conv3 = nn.Conv2d(27, 10, kernel_size=5)
+        self.conv3_drop = nn.Dropout2d()
+        self.fc1 = nn.Linear(490, 50)
+        self.fc2 = nn.Linear(50, 10)
+
+    def forward(self, x):
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.conv2(x))
+        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        x = x.view(-1, 490)
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return F.log_softmax(x)
+
+    def forward_return_activations(self, x):
+        activation_list = []
+        x = F.relu(self.conv1(x))
+        print(x.size())
+        fig = plt.figure()
+        for i, slice in enumerate(x[0][:][:][:]):
+            slice = slice.data.numpy()
+            print(slice)
+            slice = np.ravel(slice, order='C')
+            slice = slice.reshape((30, 30), order='F')
+            ax = fig.add_subplot(3, 3, i+1)
+            ax.set_title('Slice {}'.format(i))
+            ax.imshow(slice)
+        plt.show()
+        activation_list.append(x[0][:][:])
+        x = F.relu(self.conv2(x))
+        activation_list.append(x[0][:][:])
+        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        activation_list.append(x[0][:][:])
+        x = x.view(-1, 490)
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return activation_list
+
 
 def train(model, epoch):
     model.train()
     loss_list = []
-    for batch_idx, (data, target) in enumerate(train_loader):
+    for batch_idx, (data, target) in enumerate(cifar_train_loader):
         data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        if batch_idx % 1 == 0:
+        if batch_idx % 100 == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.data[0]))
@@ -191,19 +252,34 @@ def get_activations(model, image):
             ax1.set_yticklabels([])
     plt.show()
 
+def create_probe_image(size):
+    red = np.zeros((size, size))
+    red[size//2, :] = 1
+    green = np.zeros((size, size))
+    green[:, size//2] = 1
+    blue = np.eye(size)
+    img = np.stack([red, green, blue])
+    #img = np.ravel(img, order='C')
+    #img = img.reshape((size, size, 3), order='F')
+    return img
 
 if __name__ == '__main__':
-
-    model = GroupNet()
+    image = create_probe_image(32)
+    image = torch.from_numpy(image).contiguous().float()
+    #sys.exit(1)
+    path = './groupnetrgb.torch'
+    model = GroupNetRGB()
     optimizer = optim.SGD(model.parameters(), lr=0.01,
         momentum=0.5)
 
-    for epoch in range(1, 10):
-        train(model, epoch)
-        loss_list.append(test(model))
-        torch.save(model.state_dict(), path)
+    #model.load_state_dict(torch.load(path))
 
-    for data, target in train_loader:
+    #for epoch in range(1, 2):
+    #    train(model, epoch)
+    #torch.save(model.state_dict(), path)
+
+    for data, target in cifar_train_loader:
         img = data[0]
         break
-    get_activations(model, img)
+    model.forward_return_activations(Variable(image.view(1, 3, 32, 32)))
+    #get_activations(model, img)
