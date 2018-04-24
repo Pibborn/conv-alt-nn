@@ -6,8 +6,10 @@ import numpy as np
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
+from abc import ABC, abstractmethod
 
 torch.manual_seed(10)
+cuda = False
 
 # load and create data if needed
 train_loader = torch.utils.data.DataLoader(
@@ -17,6 +19,7 @@ train_loader = torch.utils.data.DataLoader(
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
     batch_size=8, shuffle=True)
+
 test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('./mnist-data', train=False, transform=transforms.Compose([
                        transforms.ToTensor(),
@@ -34,7 +37,46 @@ cifar_test_loader = torch.utils.data.DataLoader(
     download=True, transform=transforms.ToTensor()), batch_size=8, shuffle=True
 )
 
-class Net(nn.Module):
+class BaseNet(ABC, nn.Module):
+
+    @abstractmethod
+    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
+        self.train()
+        loss_list = []
+        for epoch in range(num_epochs):
+            for batch_idx, (data, target) in enumerate(train_loader):
+                data, target = Variable(data), Variable(target)
+                optimizer.zero_grad()
+                output = self(data)
+                loss = F.nll_loss(output, target)
+                loss.backward()
+                optimizer.step()
+                if batch_idx % 100 == 0:
+                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        epoch, batch_idx * len(data), len(train_loader.dataset),
+                        100. * batch_idx / len(train_loader), loss.data[0]))
+
+    @abstractmethod
+    def test_with_loader(self, test_loader):
+        self.eval()
+        test_loss = 0
+        correct = 0
+        for data, target in test_loader:
+            if cuda:
+                data, target = data.cuda(), target.cuda()
+            data, target = Variable(data, volatile=True), Variable(target)
+            output = self(data)
+            test_loss += F.nll_loss(output, target, size_average=False).data[0] # sum up batch loss
+            pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+
+        test_loss /= len(test_loader.dataset)
+        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+            test_loss, correct, len(test_loader.dataset),
+            100. * correct / len(test_loader.dataset)))
+        return test_loss
+
+class Net(BaseNet):
     def __init__(self):
         super(Net, self).__init__()
         torch.manual_seed(10)
@@ -66,7 +108,14 @@ class Net(nn.Module):
         x = self.fc2(x)
         return activation_list
 
-class OtherNet(nn.Module):
+    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
+        super(Net, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
+
+    def test_with_loader(self, test_loader):
+        super(Net, self).test_with_loader(test_loader)
+
+
+class OtherNet(BaseNet):
     def __init__(self):
         super(OtherNet, self).__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
@@ -120,8 +169,15 @@ class OtherNet(nn.Module):
         x = self.fc2(x)
         return activation_list
 
+    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
+        super(OtherNet, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
 
-class GroupNet(nn.Module):
+    def test_with_loader(self, test_loader):
+        super(OtherNet, self).test_with_loader(test_loader)
+
+
+
+class GroupNet(BaseNet):
     def __init__(self):
         super(GroupNet, self).__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
@@ -155,7 +211,14 @@ class GroupNet(nn.Module):
         x = self.fc2(x)
         return activation_list
 
-class GroupNetRGB(nn.Module):
+    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
+        super(GroupNet, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
+
+    def test_with_loader(self, test_loader):
+        super(GroupNet, self).test_with_loader(test_loader)
+
+
+class GroupNetRGB(BaseNet):
     def __init__(self):
         super(GroupNetRGB, self).__init__()
         self.conv1 = nn.Conv2d(3, 9, kernel_size=3, padding=0, groups=3, stride=1)
@@ -205,40 +268,12 @@ class GroupNetRGB(nn.Module):
         x = self.fc2(x)
         return activation_list
 
+    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
+        super(GroupNetRGB, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
 
-def train(model, epoch):
-    model.train()
-    loss_list = []
-    for batch_idx, (data, target) in enumerate(cifar_train_loader):
-        data, target = Variable(data), Variable(target)
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % 100 == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.data[0]))
+    def test_with_loader(self, test_loader):
+        super(GroupNetRGB, self).test_with_loader(test_loader)
 
-def test(model):
-    model.eval()
-    test_loss = 0
-    correct = 0
-    for data, target in test_loader:
-        if args.cuda:
-            data, target = data.cuda(), target.cuda()
-        data, target = Variable(data, volatile=True), Variable(target)
-        output = model(data)
-        test_loss += F.nll_loss(output, target, size_average=False).data[0] # sum up batch loss
-        pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
-        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-
-    test_loss /= len(test_loader.dataset)
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
-    return test_loss
 
 def get_activations(model, image):
     act_list = model.forward_return_activations(Variable(image.view(-1, 1, 28, 28)))
@@ -258,28 +293,35 @@ def create_probe_image(size):
     green = np.zeros((size, size))
     green[:, size//2] = 1
     blue = np.eye(size)
-    img = np.stack([red, green, blue])
+    img = np.array([red, green, blue])
     #img = np.ravel(img, order='C')
-    #img = img.reshape((size, size, 3), order='F')
+    img = np.reshape(img, (-1, size, size))
+    img = np.reshape(img.T, (size, size, -1))
+    plt.imshow(img)
+    plt.show()
     return img
 
 if __name__ == '__main__':
-    image = create_probe_image(32)
-    image = torch.from_numpy(image).contiguous().float()
-    #sys.exit(1)
-    path = './groupnetrgb.torch'
-    model = GroupNetRGB()
-    optimizer = optim.SGD(model.parameters(), lr=0.01,
-        momentum=0.5)
-
-    #model.load_state_dict(torch.load(path))
-
-    #for epoch in range(1, 2):
-    #    train(model, epoch)
-    #torch.save(model.state_dict(), path)
-
-    for data, target in cifar_train_loader:
-        img = data[0]
-        break
-    model.forward_return_activations(Variable(image.view(1, 3, 32, 32)))
-    #get_activations(model, img)
+    model = GroupNet()
+    optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.6)
+    model.train_with_loader(train_loader, optimizer, num_epochs=1)
+    model.test_with_loader(test_loader)
+    #image = create_probe_image(32)
+    #image = torch.from_numpy(image).contiguous().float()
+    ##sys.exit(1)
+    #path = './groupnetrgb.torch'
+    #model = GroupNetRGB()
+    #optimizer = optim.SGD(model.parameters(), lr=0.01,
+    #    momentum=0.5)
+#
+    ##model.load_state_dict(torch.load(path))
+#
+    ##for epoch in range(1, 2):
+    ##    train(model, epoch)
+    ##torch.save(model.state_dict(), path)
+#
+    #for data, target in cifar_train_loader:
+    #    img = data[0]
+    #    break
+    #model.forward_return_activations(Variable(image.view(1, 3, 32, 32)))
+    ##get_activations(model, img)
