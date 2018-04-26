@@ -306,9 +306,6 @@ if __name__ == '__main__':
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.6)
     model.train_with_loader(train_loader, optimizer, num_epochs=1)
     model.test_with_loader(test_loader)
-    #image = create_probe_image(32)
-    #image = torch.from_numpy(image).contiguous().float()
-    ##sys.exit(1)
     #path = './groupnetrgb.torch'
     #model = GroupNetRGB()
     #optimizer = optim.SGD(model.parameters(), lr=0.01,
