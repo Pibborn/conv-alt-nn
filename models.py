@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 
 torch.manual_seed(10)
-cuda = False
+cuda = torch.cuda.is_available()
 
 # load and create data if needed
 train_loader = torch.utils.data.DataLoader(
@@ -44,6 +44,8 @@ class BaseNet(ABC, nn.Module):
     @abstractmethod
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
         self.train()
+        if cuda:
+            self.cuda()
         loss_list = []
         for epoch in range(num_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
