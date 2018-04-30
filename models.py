@@ -40,11 +40,13 @@ cifar_test_loader = torch.utils.data.DataLoader(
 class BaseNet(ABC, nn.Module):
 
     @abstractmethod
-    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
+    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
         self.train()
         loss_list = []
         for epoch in range(num_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
+                if cuda:
+                    data, target = data.cuda(), target.cuda()
                 data, target = Variable(data), Variable(target)
                 optimizer.zero_grad()
                 output = self(data)
@@ -55,6 +57,8 @@ class BaseNet(ABC, nn.Module):
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                         100. * batch_idx / len(train_loader), loss.data[0]))
+            self.test_with_loader(test_loader)
+
 
     @abstractmethod
     def test_with_loader(self, test_loader):
@@ -108,8 +112,8 @@ class Net(BaseNet):
         x = self.fc2(x)
         return activation_list
 
-    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
-        super(Net, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
+    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
+        super(Net, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
         super(Net, self).test_with_loader(test_loader)
@@ -150,7 +154,7 @@ class OtherNet(BaseNet):
         activation_list = []
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         activation_list.append(x[0][:][:])
-        a = torch.autograd.Variable(torch.ones(args.batch_size, 1, x.size()[2], x.size()[3]))
+        a = torch.autograd.Variable(torch.ones(1, 1, x.size()[2], x.size()[3]))
         first = True
         for i in range(5):
             for xi in x.split(1, dim=1):
@@ -160,6 +164,7 @@ class OtherNet(BaseNet):
                     first = False
                 else:
                     a = torch.cat((a, xi_a), 1)
+        print(a.size())
         activation_list.append(a[0][:][:])
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
         activation_list.append(x[0][:][:])
@@ -169,8 +174,8 @@ class OtherNet(BaseNet):
         x = self.fc2(x)
         return activation_list
 
-    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
-        super(OtherNet, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
+    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
+        super(OtherNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
         super(OtherNet, self).test_with_loader(test_loader)
@@ -203,6 +208,7 @@ class GroupNet(BaseNet):
         activation_list.append(x[0][:][:])
         x = F.relu(self.conv2(x))
         activation_list.append(x[0][:][:])
+        print(x.size())
         x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
         activation_list.append(x[0][:][:])
         x = x.view(-1, 720)
@@ -211,8 +217,8 @@ class GroupNet(BaseNet):
         x = self.fc2(x)
         return activation_list
 
-    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
-        super(GroupNet, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
+    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
+        super(GroupNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
         super(GroupNet, self).test_with_loader(test_loader)
@@ -269,7 +275,7 @@ class GroupNetRGB(BaseNet):
         return activation_list
 
     def train_with_loader(self, train_loader, optimizer, num_epochs=10):
-        super(GroupNetRGB, self).train_with_loader(train_loader, optimizer, num_epochs=num_epochs)
+        super(GroupNetRGB, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
         super(GroupNetRGB, self).test_with_loader(test_loader)
@@ -304,7 +310,7 @@ def create_probe_image(size):
 if __name__ == '__main__':
     model = GroupNet()
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.6)
-    model.train_with_loader(train_loader, optimizer, num_epochs=1)
+    model.train_with_loader(train_loader, test_loader, optimizer, num_epochs=1)
     model.test_with_loader(test_loader)
     #path = './groupnetrgb.torch'
     #model = GroupNetRGB()
