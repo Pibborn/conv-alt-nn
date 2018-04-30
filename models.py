@@ -9,9 +9,12 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
+from tensorboardX import SummaryWriter
+import datetime
 
 torch.manual_seed(10)
 cuda = torch.cuda.is_available()
+time = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 
 # load and create data if needed
 train_loader = torch.utils.data.DataLoader(
@@ -42,11 +45,18 @@ cifar_test_loader = torch.utils.data.DataLoader(
 class BaseNet(ABC, nn.Module):
 
     @abstractmethod
+    def __init__(self):
+        super(BaseNet, self).__init__()
+        class_id = self.__class__.__name__
+        self.writer = SummaryWriter(log_dir='runs/'+ class_id + '/' + time)
+        self.global_step = 0
+
+    @abstractmethod
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
         self.train()
         if cuda:
             self.cuda()
-        loss_list = []
+        train_list = []
         for epoch in range(num_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
                 if cuda:
@@ -61,8 +71,27 @@ class BaseNet(ABC, nn.Module):
                     print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                         epoch, batch_idx * len(data), len(train_loader.dataset),
                         100. * batch_idx / len(train_loader), loss.data[0]))
-            self.test_with_loader(test_loader)
+                self.writer.add_scalar('train_loss', loss, global_step=self.global_step)
+                self.writer.add_scalar('test_loss', self.test_random_batch(test_loader),
+                                       global_step=self.global_step)
+                self.global_step += 1
+            train_loss, train_accuracy = self.test_with_loader(train_loader)
+            test_loss, test_accuracy = self.test_with_loader(test_loader)
+            self.writer.add_scalar('test_accuracy', test_accuracy, global_step=self.global_step)
+            self.writer.add_scalar('train_accuracy', train_accuracy, global_step=self.global_step)
 
+    def test_random_batch(self, test_loader):
+        self.eval()
+        test_loss = 0
+        correct = 0
+        data, target = next(iter(test_loader))
+        if cuda:
+            data, target = data.cuda(), target.cuda()
+        data, target = Variable(data, volatile=True), Variable(target)
+        output = self(data)
+        test_loss += F.nll_loss(output, target)
+        self.train()
+        return test_loss
 
     @abstractmethod
     def test_with_loader(self, test_loader):
@@ -82,7 +111,7 @@ class BaseNet(ABC, nn.Module):
         print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
             test_loss, correct, len(test_loader.dataset),
             100. * correct / len(test_loader.dataset)))
-        return test_loss
+        return test_loss, correct / len(test_loader.dataset)
 
 class Net(BaseNet):
     def __init__(self):
