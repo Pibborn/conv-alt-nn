@@ -75,7 +75,9 @@ class BaseNet(ABC, nn.Module):
                 self.writer.add_scalar('test_loss', self.test_random_batch(test_loader),
                                        global_step=self.global_step)
                 self.global_step += 1
+            print('Training set:')
             train_loss, train_accuracy = self.test_with_loader(train_loader)
+            print('Test set:')
             test_loss, test_accuracy = self.test_with_loader(test_loader)
             self.writer.add_scalar('test_accuracy', test_accuracy, global_step=self.global_step)
             self.writer.add_scalar('train_accuracy', train_accuracy, global_step=self.global_step)
@@ -108,10 +110,10 @@ class BaseNet(ABC, nn.Module):
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
 
         test_loss /= len(test_loader.dataset)
-        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        print('Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
             test_loss, correct, len(test_loader.dataset),
             100. * correct / len(test_loader.dataset)))
-        return test_loss, correct / len(test_loader.dataset)
+        return test_loss, 100. * correct / len(test_loader.dataset)
 
 class Net(BaseNet):
     def __init__(self):
@@ -146,10 +148,10 @@ class Net(BaseNet):
         return activation_list
 
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
-        super(Net, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
+        return super(Net, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
-        super(Net, self).test_with_loader(test_loader)
+        return super(Net, self).test_with_loader(test_loader)
 
 
 class OtherNet(BaseNet):
@@ -208,10 +210,10 @@ class OtherNet(BaseNet):
         return activation_list
 
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
-        super(OtherNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
+        return super(OtherNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
-        super(OtherNet, self).test_with_loader(test_loader)
+        return super(OtherNet, self).test_with_loader(test_loader)
 
 
 
@@ -251,10 +253,10 @@ class GroupNet(BaseNet):
         return activation_list
 
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
-        super(GroupNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
+        return super(GroupNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
-        super(GroupNet, self).test_with_loader(test_loader)
+        return super(GroupNet, self).test_with_loader(test_loader)
 
 
 class GroupNetRGB(BaseNet):
@@ -308,10 +310,10 @@ class GroupNetRGB(BaseNet):
         return activation_list
 
     def train_with_loader(self, train_loader, optimizer, num_epochs=10):
-        super(GroupNetRGB, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
+        return super(GroupNetRGB, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):
-        super(GroupNetRGB, self).test_with_loader(test_loader)
+        return super(GroupNetRGB, self).test_with_loader(test_loader)
 
 
 def get_activations(model, image):
