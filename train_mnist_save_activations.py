@@ -11,10 +11,11 @@ import argparse
 num_epochs = 100
 save_step = 10
 kernel_size = 3
-
+maxpool = 1
 dataset = MNIST(8)
-model = OtherNet(dataset.batch_size, dataset.shape, kernel_size=kernel_size)
-comment = 'kernel3'
+
+model = OtherNet(dataset.batch_size, dataset.shape, kernel_size=kernel_size, maxpool=maxpool)
+comment = 'kernel3_nopool'
 path = './' + model.__class__.__name__ + '_' + comment
 optimizer = optim.SGD(model.parameters(), lr=0.01,
         momentum=0.5)

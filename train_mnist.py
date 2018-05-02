@@ -7,7 +7,7 @@ import numpy as np
 from models import OtherNet, GroupNet, Net
 
 dataset = MNIST(4)
-model = GroupNet(dataset.batch_size, dataset.shape, kernel_size=3)
+model = Net(dataset.batch_size, dataset.shape, kernel_size=3)
 path = './' + model.__class__.__name__ + '.torch'
 optimizer = optim.SGD(model.parameters(), lr=0.01,
         momentum=0.5)

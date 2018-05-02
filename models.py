@@ -45,7 +45,7 @@ cifar_test_loader = torch.utils.data.DataLoader(
 class BaseNet(ABC, nn.Module):
 
     @abstractmethod
-    def __init__(self, batch_size, input_shape, kernel_size=3):
+    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2):
         super(BaseNet, self).__init__()
         class_id = self.__class__.__name__
         self.writer = SummaryWriter(log_dir='runs/'+ class_id + '/' + time)
@@ -53,6 +53,7 @@ class BaseNet(ABC, nn.Module):
         self.batch_size = batch_size
         self.input_shape = input_shape
         self.kernel_size = kernel_size
+        self.maxpool = maxpool
 
     @abstractmethod
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
@@ -127,14 +128,14 @@ class BaseNet(ABC, nn.Module):
         return test_loss, 100. * correct / len(test_loader.dataset)
 
 class Net(BaseNet):
-    def __init__(self, batch_size, input_shape, kernel_size=3):
+    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2):
         super(Net, self).__init__(batch_size, input_shape)
         torch.manual_seed(10)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size)
-        self.maxpool1 = nn.MaxPool2d(2)
+        self.maxpool1 = nn.MaxPool2d(maxpool)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=kernel_size)
         self.conv3 = nn.Conv2d(20, 50, kernel_size=kernel_size)
-        self.maxpool2 = nn.MaxPool2d(2)
+        self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv3_drop = nn.Dropout2d()
         self.features = nn.Sequential(
             self.conv1,
@@ -174,15 +175,15 @@ class Net(BaseNet):
         return super(Net, self).test_with_loader(test_loader)
 
 class OtherNet(BaseNet):
-    def __init__(self, batch_size, input_shape, kernel_size):
+    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2):
         super(OtherNet, self).__init__(batch_size, input_shape)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size, padding=2)
-        self.maxpool1 = nn.MaxPool2d(2)
+        self.maxpool1 = nn.MaxPool2d(maxpool)
         self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
             self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=kernel_size, padding=2))
         self.conv2 = nn.Conv2d(150, 20, kernel_size=kernel_size)
-        self.maxpool2 = nn.MaxPool2d(2)
+        self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv2_drop = nn.Dropout2d()
         self.fc_input_size = self.othernet_get_linear_input_shape()
         self.fc1 = nn.Linear(self.fc_input_size, 50)
@@ -251,13 +252,13 @@ class OtherNet(BaseNet):
 
 
 class GroupNet(BaseNet):
-    def __init__(self, batch_size, input_shape, kernel_size):
+    def __init__(self, batch_size, input_shape, kernel_size, maxpool=2):
         super(GroupNet, self).__init__(batch_size, input_shape, kernel_size)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size, padding=2)
-        self.maxpool1 = nn.MaxPool2d(2)
+        self.maxpool1 = nn.MaxPool2d(maxpool)
         self.conv2 = nn.Conv2d(10, 150, kernel_size=kernel_size, padding=2, groups=10)
         self.conv3 = nn.Conv2d(150, 20, kernel_size=kernel_size)
-        self.maxpool2 = nn.MaxPool2d(2)
+        self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv3_drop = nn.Dropout2d()
         self.features = nn.Sequential(
             self.conv1,
