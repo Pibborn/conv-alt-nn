@@ -14,7 +14,7 @@ def get_activations(model, image, path=None):
         fig = plt.figure()
         for j, act in enumerate(layer_act): # attivazioni in un layer
             ax1 = fig.add_subplot(int(len(act_list[i])/5), 5,j+1)
-            ax1.imshow(act.data.numpy(), cmap='gray')
+            ax1.imshow(act.data.cpu().numpy(), cmap='gray')
             ax1.axis('off')
             ax1.set_xticklabels([])
             ax1.set_yticklabels([])

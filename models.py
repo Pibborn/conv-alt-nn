@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 import datetime
 
 torch.manual_seed(10)
-cuda = torch.cuda.is_available()
+CUDA_AVAILABLE = torch.cuda.is_available()
 time = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 
 # load and create data if needed
@@ -45,21 +45,23 @@ cifar_test_loader = torch.utils.data.DataLoader(
 class BaseNet(ABC, nn.Module):
 
     @abstractmethod
-    def __init__(self):
+    def __init__(self, batch_size, input_shape):
         super(BaseNet, self).__init__()
         class_id = self.__class__.__name__
         self.writer = SummaryWriter(log_dir='runs/'+ class_id + '/' + time)
         self.global_step = 0
+        self.batch_size = batch_size
+        self.input_shape = input_shape
 
     @abstractmethod
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
         self.train()
-        if cuda:
+        if CUDA_AVAILABLE:
             self.cuda()
         train_list = []
         for epoch in range(num_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
-                if cuda:
+                if CUDA_AVAILABLE:
                     data, target = data.cuda(), target.cuda()
                 data, target = Variable(data), Variable(target)
                 optimizer.zero_grad()
@@ -87,7 +89,7 @@ class BaseNet(ABC, nn.Module):
         test_loss = 0
         correct = 0
         data, target = next(iter(test_loader))
-        if cuda:
+        if CUDA_AVAILABLE:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = self(data)
@@ -95,13 +97,21 @@ class BaseNet(ABC, nn.Module):
         self.train()
         return test_loss
 
+    def get_linear_input_shape(self, last_conv_layer):
+        if self.__class__.__name__ != 'OtherNet':
+            f = last_conv_layer(Variable(torch.ones(1, *self.input_shape)))
+            return int(np.prod(f.size()[1:]))
+        else:
+            self.get_linear_input_shape(Variable(torch.ones(1, *self.input_shape)))
+
+
     @abstractmethod
     def test_with_loader(self, test_loader):
         self.eval()
         test_loss = 0
         correct = 0
         for data, target in test_loader:
-            if cuda:
+            if CUDA_AVAILABLE:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data, volatile=True), Variable(target)
             output = self(data)
@@ -116,22 +126,31 @@ class BaseNet(ABC, nn.Module):
         return test_loss, 100. * correct / len(test_loader.dataset)
 
 class Net(BaseNet):
-    def __init__(self):
-        super(Net, self).__init__()
+    def __init__(self, batch_size, input_shape):
+        super(Net, self).__init__(batch_size, input_shape)
         torch.manual_seed(10)
-
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
+        self.maxpool1 = nn.MaxPool2d(2)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv3 = nn.Conv2d(20, 50, kernel_size=5)
+        self.maxpool2 = nn.MaxPool2d(2)
         self.conv3_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(200, 50)
+        self.features = nn.Sequential(
+            self.conv1,
+            self.maxpool1,
+            self.conv2,
+            self.conv3,
+            self.maxpool2
+        )
+        self.fc_input_size = self.get_linear_input_shape(self.features)
+        self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.maxpool1(self.conv1(x)))
         x = F.relu(self.conv2(x))
-        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
-        x = x.view(-1, 200)
+        x = F.relu(self.maxpool2(self.conv3_drop(self.conv3(x))))
+        x = x.view(-1, self.fc_input_size)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
@@ -139,11 +158,11 @@ class Net(BaseNet):
 
     def forward_return_activations(self, x):
         activation_list = []
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.maxpool1(self.conv1(x)))
         activation_list.append(x[0][:][:])
         x = F.relu(self.conv2(x))
         activation_list.append(x[0][:][:])
-        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        x = F.relu(self.maxpool2(self.conv3_drop(self.conv3(x))))
         activation_list.append(x[0][:][:])
         return activation_list
 
@@ -154,20 +173,23 @@ class Net(BaseNet):
         return super(Net, self).test_with_loader(test_loader)
 
 class OtherNet(BaseNet):
-    def __init__(self):
-        super(OtherNet, self).__init__()
+    def __init__(self, batch_size, input_shape):
+        super(OtherNet, self).__init__(batch_size, input_shape)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
+        self.maxpool1 = nn.MaxPool2d(2)
         self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
             self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=5, padding=2))
         self.conv2 = nn.Conv2d(150, 20, kernel_size=5)
+        self.maxpool2 = nn.MaxPool2d(2)
         self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(500, 50)
+        self.fc_input_size = self.othernet_get_linear_input_shape()
+        self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        a = torch.autograd.Variable(torch.ones(8, 1, x.size()[2], x.size()[3]))
+        x = F.relu(self.maxpool1(self.conv1(x)))
+        a = torch.autograd.Variable(torch.ones(self.batch_size, 1, x.size()[2], x.size()[3]))
         first = True
         for i in range(5):
             for xi in x.split(1, dim=1):
@@ -177,12 +199,28 @@ class OtherNet(BaseNet):
                     first = False
                 else:
                     a = torch.cat((a, xi_a), 1)
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
-        x = x.view(-1, 500)
+        x = F.relu(self.maxpool2(self.conv2_drop(self.conv2(a))))
+        x = x.view(-1, self.fc_input_size)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
+
+    def othernet_get_linear_input_shape(self):
+        x = torch.autograd.Variable(torch.ones(self.batch_size, *self.input_shape))
+        x = self.maxpool1(self.conv1(x))
+        a = torch.autograd.Variable(torch.ones(self.batch_size, x.size()[2], x.size()[3]))
+        first = True
+        for i in range(5):
+            for xi in x.split(1, dim=1):
+                xi_a = self.conv2_list[i](xi)
+                if first:
+                    a = xi_a
+                    first = False
+                else:
+                    a = torch.cat((a, xi_a), 1)
+        x = self.maxpool2(self.conv2_drop(self.conv2(a)))
+        return int(np.prod(list(x.size())[1:]))
 
     def forward_return_activations(self, x):
         activation_list = []
@@ -212,20 +250,30 @@ class OtherNet(BaseNet):
 
 
 class GroupNet(BaseNet):
-    def __init__(self):
-        super(GroupNet, self).__init__()
+    def __init__(self, batch_size, input_shape):
+        super(GroupNet, self).__init__(batch_size, input_shape)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
+        self.maxpool1 = nn.MaxPool2d(2)
         self.conv2 = nn.Conv2d(10, 150, kernel_size=5, padding=2, groups=10)
         self.conv3 = nn.Conv2d(150, 20, kernel_size=5)
+        self.maxpool2 = nn.MaxPool2d(2)
         self.conv3_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(500, 50)
+        self.features = nn.Sequential(
+            self.conv1,
+            self.maxpool1,
+            self.conv2,
+            self.conv3,
+            self.maxpool2
+        )
+        self.fc_input_size = self.get_linear_input_shape(self.features)
+        self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.maxpool1(self.conv1(x)))
         x = F.relu(self.conv2(x))
-        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
-        x = x.view(-1, 500)
+        x = F.relu(self.maxpool2(self.conv3_drop(self.conv3(x))))
+        x = x.view(-1, self.fc_input_size)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
@@ -237,7 +285,6 @@ class GroupNet(BaseNet):
         activation_list.append(x[0][:][:])
         x = F.relu(self.conv2(x))
         activation_list.append(x[0][:][:])
-        print(x.size())
         x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
         activation_list.append(x[0][:][:])
         return activation_list
@@ -250,8 +297,8 @@ class GroupNet(BaseNet):
 
 
 class GroupNetRGB(BaseNet):
-    def __init__(self):
-        super(GroupNetRGB, self).__init__()
+    def __init__(self, batch_size, input_shape):
+        super(GroupNetRGB, self).__init__(batch_size, input_shape)
         self.conv1 = nn.Conv2d(3, 9, kernel_size=5, padding=0, groups=3, stride=1)
         #for convmat in self.conv1.weight:
         convmat = torch.zeros(self.conv1.weight.size())
