@@ -6,13 +6,16 @@ import torch.optim as optim
 import numpy as np
 from models import OtherNet, GroupNet, Net
 from viz_experiment import get_activations
+import argparse
 
 num_epochs = 100
 save_step = 10
+kernel_size = 3
 
 dataset = MNIST(8)
-model = OtherNet(dataset.batch_size, dataset.shape)
-path = './' + model.__class__.__name__
+model = OtherNet(dataset.batch_size, dataset.shape, kernel_size=kernel_size)
+comment = 'kernel3'
+path = './' + model.__class__.__name__ + '_' + comment
 optimizer = optim.SGD(model.parameters(), lr=0.01,
         momentum=0.5)
 for i in range(int(num_epochs/save_step)):

@@ -45,13 +45,14 @@ cifar_test_loader = torch.utils.data.DataLoader(
 class BaseNet(ABC, nn.Module):
 
     @abstractmethod
-    def __init__(self, batch_size, input_shape):
+    def __init__(self, batch_size, input_shape, kernel_size=3):
         super(BaseNet, self).__init__()
         class_id = self.__class__.__name__
         self.writer = SummaryWriter(log_dir='runs/'+ class_id + '/' + time)
         self.global_step = 0
         self.batch_size = batch_size
         self.input_shape = input_shape
+        self.kernel_size = kernel_size
 
     @abstractmethod
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
@@ -126,13 +127,13 @@ class BaseNet(ABC, nn.Module):
         return test_loss, 100. * correct / len(test_loader.dataset)
 
 class Net(BaseNet):
-    def __init__(self, batch_size, input_shape):
+    def __init__(self, batch_size, input_shape, kernel_size=3):
         super(Net, self).__init__(batch_size, input_shape)
         torch.manual_seed(10)
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size)
         self.maxpool1 = nn.MaxPool2d(2)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv3 = nn.Conv2d(20, 50, kernel_size=5)
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=kernel_size)
+        self.conv3 = nn.Conv2d(20, 50, kernel_size=kernel_size)
         self.maxpool2 = nn.MaxPool2d(2)
         self.conv3_drop = nn.Dropout2d()
         self.features = nn.Sequential(
@@ -173,14 +174,14 @@ class Net(BaseNet):
         return super(Net, self).test_with_loader(test_loader)
 
 class OtherNet(BaseNet):
-    def __init__(self, batch_size, input_shape):
+    def __init__(self, batch_size, input_shape, kernel_size):
         super(OtherNet, self).__init__(batch_size, input_shape)
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size, padding=2)
         self.maxpool1 = nn.MaxPool2d(2)
         self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
-            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=5, padding=2))
-        self.conv2 = nn.Conv2d(150, 20, kernel_size=5)
+            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=kernel_size, padding=2))
+        self.conv2 = nn.Conv2d(150, 20, kernel_size=kernel_size)
         self.maxpool2 = nn.MaxPool2d(2)
         self.conv2_drop = nn.Dropout2d()
         self.fc_input_size = self.othernet_get_linear_input_shape()
@@ -250,12 +251,12 @@ class OtherNet(BaseNet):
 
 
 class GroupNet(BaseNet):
-    def __init__(self, batch_size, input_shape):
-        super(GroupNet, self).__init__(batch_size, input_shape)
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
+    def __init__(self, batch_size, input_shape, kernel_size):
+        super(GroupNet, self).__init__(batch_size, input_shape, kernel_size)
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size, padding=2)
         self.maxpool1 = nn.MaxPool2d(2)
-        self.conv2 = nn.Conv2d(10, 150, kernel_size=5, padding=2, groups=10)
-        self.conv3 = nn.Conv2d(150, 20, kernel_size=5)
+        self.conv2 = nn.Conv2d(10, 150, kernel_size=kernel_size, padding=2, groups=10)
+        self.conv3 = nn.Conv2d(150, 20, kernel_size=kernel_size)
         self.maxpool2 = nn.MaxPool2d(2)
         self.conv3_drop = nn.Dropout2d()
         self.features = nn.Sequential(
@@ -298,15 +299,15 @@ class GroupNet(BaseNet):
 
 class GroupNetRGB(BaseNet):
     def __init__(self, batch_size, input_shape):
-        super(GroupNetRGB, self).__init__(batch_size, input_shape)
-        self.conv1 = nn.Conv2d(3, 9, kernel_size=5, padding=0, groups=3, stride=1)
+        super(GroupNetRGB, self).__init__(batch_size, input_shape, kernel_size)
+        self.conv1 = nn.Conv2d(3, 9, kernel_size=kernel_size, padding=0, groups=3, stride=1)
         #for convmat in self.conv1.weight:
         convmat = torch.zeros(self.conv1.weight.size())
         convmat[:, :, 3//2, 3//2] = 1
         self.conv1.weight = torch.nn.Parameter(convmat)
         self.conv1.bias = torch.nn.Parameter(torch.zeros(self.conv1.bias.size()))
-        self.conv2 = nn.Conv2d(9, 27, kernel_size=5, stride=1, padding=2, groups=3)
-        self.conv3 = nn.Conv2d(27, 10, kernel_size=5)
+        self.conv2 = nn.Conv2d(9, 27, kernel_size=kernel_size, stride=1, padding=2, groups=3)
+        self.conv3 = nn.Conv2d(27, 10, kernel_size=kernel_size)
         self.conv3_drop = nn.Dropout2d()
         self.fc1 = nn.Linear(490, 50)
         self.fc2 = nn.Linear(50, 10)
