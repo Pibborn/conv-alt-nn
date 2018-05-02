@@ -122,14 +122,16 @@ class Net(BaseNet):
 
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
+        self.conv3 = nn.Conv2d(20, 50, kernel_size=5)
+        self.conv3_drop = nn.Dropout2d()
+        self.fc1 = nn.Linear(200, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, 320)
+        x = F.relu(self.conv2(x))
+        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        x = x.view(-1, 200)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
@@ -139,12 +141,10 @@ class Net(BaseNet):
         activation_list = []
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         activation_list.append(x[0][:][:])
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+        x = F.relu(self.conv2(x))
         activation_list.append(x[0][:][:])
-        x = x.view(-1, 320)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
+        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        activation_list.append(x[0][:][:])
         return activation_list
 
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
@@ -153,17 +153,16 @@ class Net(BaseNet):
     def test_with_loader(self, test_loader):
         return super(Net, self).test_with_loader(test_loader)
 
-
 class OtherNet(BaseNet):
     def __init__(self):
         super(OtherNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
         self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
-            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=3, stride=1, padding=2))
+            self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=5, padding=2))
         self.conv2 = nn.Conv2d(150, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(720, 50)
+        self.fc1 = nn.Linear(500, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
@@ -179,7 +178,7 @@ class OtherNet(BaseNet):
                 else:
                     a = torch.cat((a, xi_a), 1)
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
-        x = x.view(-1, 720)
+        x = x.view(-1, 500)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
@@ -199,14 +198,9 @@ class OtherNet(BaseNet):
                     first = False
                 else:
                     a = torch.cat((a, xi_a), 1)
-        print(a.size())
         activation_list.append(a[0][:][:])
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
         activation_list.append(x[0][:][:])
-        x = x.view(-1, 720)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
         return activation_list
 
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
@@ -220,18 +214,18 @@ class OtherNet(BaseNet):
 class GroupNet(BaseNet):
     def __init__(self):
         super(GroupNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=3, padding=2)
-        self.conv2 = nn.Conv2d(10, 150, kernel_size=3, stride=1, padding=2, groups=10)
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=2)
+        self.conv2 = nn.Conv2d(10, 150, kernel_size=5, padding=2, groups=10)
         self.conv3 = nn.Conv2d(150, 20, kernel_size=5)
         self.conv3_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(720, 50)
+        self.fc1 = nn.Linear(500, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(self.conv2(x))
         x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
-        x = x.view(-1, 720)
+        x = x.view(-1, 500)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
@@ -246,10 +240,6 @@ class GroupNet(BaseNet):
         print(x.size())
         x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
         activation_list.append(x[0][:][:])
-        x = x.view(-1, 720)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
         return activation_list
 
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
@@ -262,13 +252,13 @@ class GroupNet(BaseNet):
 class GroupNetRGB(BaseNet):
     def __init__(self):
         super(GroupNetRGB, self).__init__()
-        self.conv1 = nn.Conv2d(3, 9, kernel_size=3, padding=0, groups=3, stride=1)
+        self.conv1 = nn.Conv2d(3, 9, kernel_size=5, padding=0, groups=3, stride=1)
         #for convmat in self.conv1.weight:
         convmat = torch.zeros(self.conv1.weight.size())
         convmat[:, :, 3//2, 3//2] = 1
         self.conv1.weight = torch.nn.Parameter(convmat)
         self.conv1.bias = torch.nn.Parameter(torch.zeros(self.conv1.bias.size()))
-        self.conv2 = nn.Conv2d(9, 27, kernel_size=3, stride=1, padding=2, groups=3)
+        self.conv2 = nn.Conv2d(9, 27, kernel_size=5, stride=1, padding=2, groups=3)
         self.conv3 = nn.Conv2d(27, 10, kernel_size=5)
         self.conv3_drop = nn.Dropout2d()
         self.fc1 = nn.Linear(490, 50)
@@ -303,10 +293,6 @@ class GroupNetRGB(BaseNet):
         activation_list.append(x[0][:][:])
         x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
         activation_list.append(x[0][:][:])
-        x = x.view(-1, 490)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
         return activation_list
 
     def train_with_loader(self, train_loader, optimizer, num_epochs=10):

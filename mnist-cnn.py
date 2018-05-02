@@ -223,7 +223,7 @@ def show_activations(conv_mat_tensor, image, num_cols=5):
     plt.show()
 
 def get_activations(model, image):
-    act_list = model.forward_return_activations(Variable(image.view(-1, 1, 28, 28)))
+    act_list = model.forward_return_activations(image)
     for i, layer_act in enumerate(act_list): # numero layer
         fig = plt.figure()
         for j, act in enumerate(layer_act): # attivazioni in un layer
@@ -232,8 +232,7 @@ def get_activations(model, image):
             ax1.axis('off')
             ax1.set_xticklabels([])
             ax1.set_yticklabels([])
-    plt.show()
-
+        plt.savefig(model.__class__.__name__ + '_activations_layer_' + (str(i)) + '.png')
 
 def get_all_conv_mat(model):
     # for some reason the first module is the whole model
@@ -289,5 +288,6 @@ if __name__ == '__main__':
         for idx, (data, target) in enumerate(train_loader):
             #img = data[0].numpy().reshape((data[0].shape[1], data[0].shape[2]))
             img = data[0]
+            img = Variable(img.view(1, 1, 28, 28))
             break
         get_activations(model, img)

@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datasets
 
-def get_activations(model, image):
+def get_activations(model, image, path=None):
     act_list = model.forward_return_activations(image)
     for i, layer_act in enumerate(act_list): # numero layer
         fig = plt.figure()
@@ -18,7 +18,11 @@ def get_activations(model, image):
             ax1.axis('off')
             ax1.set_xticklabels([])
             ax1.set_yticklabels([])
-        plt.savefig(model.__class__.__name__ + '_activations_layer_' + (str(i)) + '.png')
+        if path == None:
+            plt.savefig(model.__class__.__name__ + '_activations_layer_' + (str(i)) + '.png')
+        else:
+            plt.savefig(path + '_activations_layer_' + (str(i)) + '.png')
+
 
 def create_probe_image(size, show=False):
     red = np.zeros((size, size))
