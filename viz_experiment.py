@@ -1,4 +1,4 @@
-from models import GroupNetRGB
+from models import GroupNetRGB, Net, GroupNet, OtherNet
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,9 +6,10 @@ from torch.autograd import Variable
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
+import datasets
 
 def get_activations(model, image):
-    act_list = model.forward_return_activations(Variable(image.view(-1, 3, 32, 32)))
+    act_list = model.forward_return_activations(image)
     for i, layer_act in enumerate(act_list): # numero layer
         fig = plt.figure()
         for j, act in enumerate(layer_act): # attivazioni in un layer
@@ -17,7 +18,7 @@ def get_activations(model, image):
             ax1.axis('off')
             ax1.set_xticklabels([])
             ax1.set_yticklabels([])
-    plt.show()
+        plt.savefig(model.__class__.__name__ + '_activations_layer_' + (str(i)) + '.png')
 
 def create_probe_image(size, show=False):
     red = np.zeros((size, size))
@@ -34,10 +35,23 @@ def create_probe_image(size, show=False):
         plt.show()
     return img
 
-if __name__ == '__main__':
+def connectivity_experiment():
     image = create_probe_image(32)
     image = torch.from_numpy(image).contiguous().float()
     #sys.exit(1)
     path = './groupnetrgb.torch'
     model = GroupNetRGB()
     model.forward_return_activations(Variable(image.view(1, 3, 32, 32)))
+
+
+if __name__ == '__main__':
+    torch.manual_seed(2)
+    other_model = OtherNet()
+    group_model = GroupNet()
+    net_model = Net()
+    model_list = [other_model, group_model, net_model]
+    img = datasets.get_random_mnist_examples(1)
+    for model in model_list:
+        model_path = 'models/' + model.__class__.__name__ + '.torch'
+        model.load_state_dict(torch.load(model_path, map_location='cpu'))
+        get_activations(model, img)
