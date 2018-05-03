@@ -186,13 +186,12 @@ class OtherNet(BaseNet):
         self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv2_drop = nn.Dropout2d()
         self.fc_input_size = self.othernet_get_linear_input_shape()
-        print(self.fc_input_size)
         self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
         x = F.relu(self.maxpool1(self.conv1(x)))
-        a = torch.autograd.Variable(torch.ones(self.batch_size, 1, x.size()[2], x.size()[3]))
+        a = torch.autograd.Variable(torch.ones(1))
         first = True
         for i in range(5):
             for xi in x.split(1, dim=1):
@@ -212,7 +211,7 @@ class OtherNet(BaseNet):
     def othernet_get_linear_input_shape(self):
         x = torch.autograd.Variable(torch.ones(self.batch_size, *self.input_shape))
         x = self.maxpool1(self.conv1(x))
-        a = torch.autograd.Variable(torch.ones(self.batch_size, x.size()[2], x.size()[3]))
+        a = torch.autograd.Variable(torch.ones(1))
         first = True
         for i in range(5):
             for xi in x.split(1, dim=1):
@@ -229,7 +228,7 @@ class OtherNet(BaseNet):
         activation_list = []
         x = F.relu(self.maxpool1(self.conv1(x)))
         activation_list.append(x[0][:][:])
-        a = torch.autograd.Variable(torch.ones(1, 1, x.size()[2], x.size()[3]))
+        a = torch.autograd.Variable(torch.ones(1))
         first = True
         for i in range(5):
             for xi in x.split(1, dim=1):
