@@ -287,7 +287,7 @@ if __name__ == '__main__':
         #plot_convmat(first_layer_weights)
         for idx, (data, target) in enumerate(train_loader):
             #img = data[0].numpy().reshape((data[0].shape[1], data[0].shape[2]))
-            img = data[0]
+            img = data[1]
             img = Variable(img.view(1, 1, 28, 28))
             break
         get_activations(model, img)

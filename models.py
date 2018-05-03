@@ -182,10 +182,11 @@ class OtherNet(BaseNet):
         self.conv2_list = torch.nn.ModuleList()
         for i in range(5):
             self.conv2_list.append(nn.Conv2d(1, 3, kernel_size=kernel_size, padding=2))
-        self.conv2 = nn.Conv2d(150, 20, kernel_size=kernel_size)
+        self.conv2 = nn.Conv2d(150, 20, kernel_size=5)
         self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv2_drop = nn.Dropout2d()
         self.fc_input_size = self.othernet_get_linear_input_shape()
+        print(self.fc_input_size)
         self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
@@ -226,7 +227,7 @@ class OtherNet(BaseNet):
 
     def forward_return_activations(self, x):
         activation_list = []
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.maxpool1(self.conv1(x)))
         activation_list.append(x[0][:][:])
         a = torch.autograd.Variable(torch.ones(1, 1, x.size()[2], x.size()[3]))
         first = True
@@ -239,7 +240,7 @@ class OtherNet(BaseNet):
                 else:
                     a = torch.cat((a, xi_a), 1)
         activation_list.append(a[0][:][:])
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(a)), 2))
+        x = F.relu(self.maxpool2(self.conv2_drop(self.conv2(a))))
         activation_list.append(x[0][:][:])
         return activation_list
 
