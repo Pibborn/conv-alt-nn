@@ -2,6 +2,7 @@ import torch
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from models import CUDA_AVAILABLE
+kwargs = {'num_workers': 1, 'pin_memory': True} if CUDA_AVAILABLE else {}
 
 class MNIST():
     def __init__(self, batch_size):
@@ -11,7 +12,7 @@ class MNIST():
                    transforms.ToTensor(),
                    transforms.Normalize((0.1307,), (0.3081,))
                    ])),
-                   batch_size=batch_size, shuffle=True)
+                   batch_size=batch_size, shuffle=True, **kwargs)
 
         self.test_loader = torch.utils.data.DataLoader(
             datasets.MNIST('./mnist-data', train=False, download=True,
@@ -19,7 +20,7 @@ class MNIST():
                     transforms.ToTensor(),
                     transforms.Normalize((0.1307,), (0.3081,))
                     ])),
-                    batch_size=batch_size, shuffle=True)
+                    batch_size=batch_size, shuffle=True, **kwargs)
         self.batch_size = batch_size
         self.shape = (1, 28, 28)
 
@@ -39,11 +40,11 @@ class CIFAR10():
         self.train_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('./cifar-data', train=True,
             download=True, transform=transforms.ToTensor()), batch_size=batch_size,
-            shuffle=True)
+            shuffle=True, **kwargs)
         self.test_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('./cifar-data', train=False,
             download=True, transform=transforms.ToTensor()), batch_size=batch_size,
-            shuffle=True)
+            shuffle=True, **kwargs)
         self.batch_size = batch_size
         self.shape = (3, 32, 32)
 
