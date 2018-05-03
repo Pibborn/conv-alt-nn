@@ -6,13 +6,14 @@ from torch.autograd import Variable
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-import datasets
+from datasets import MNIST
 
 def get_activations(model, image, path=None):
     act_list = model.forward_return_activations(image)
     for i, layer_act in enumerate(act_list): # numero layer
         fig = plt.figure()
         for j, act in enumerate(layer_act): # attivazioni in un layer
+            print(act.size())
             ax1 = fig.add_subplot(int(len(act_list[i])/5), 5,j+1)
             ax1.imshow(act.data.cpu().numpy(), cmap='gray')
             ax1.axis('off')
@@ -50,12 +51,10 @@ def connectivity_experiment():
 
 if __name__ == '__main__':
     torch.manual_seed(2)
-    other_model = OtherNet()
-    group_model = GroupNet()
-    net_model = Net()
-    model_list = [other_model, group_model, net_model]
-    img = datasets.get_random_mnist_examples(1)
-    for model in model_list:
-        model_path = 'models/' + model.__class__.__name__ + '.torch'
-        model.load_state_dict(torch.load(model_path, map_location='cpu'))
-        get_activations(model, img)
+    model = OtherNet(8, (1, 28, 28), kernel_size=3, maxpool=1)
+    dataset = MNIST(8)
+    img = dataset.get_random_examples(1)
+    #model_path = 'models/' + model.__class__.__name__ + '.torch'
+    model_path = 'models/OtherNet_kernel3_nopool_epoch_100.torch'
+    model.load_state_dict(torch.load(model_path, map_location='cpu'))
+    get_activations(model, img)
