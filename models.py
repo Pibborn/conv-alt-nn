@@ -45,7 +45,7 @@ cifar_test_loader = torch.utils.data.DataLoader(
 class BaseNet(ABC, nn.Module):
 
     @abstractmethod
-    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2):
+    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2, dropout=True):
         super(BaseNet, self).__init__()
         class_id = self.__class__.__name__
         self.writer = SummaryWriter(log_dir='runs/'+ class_id + '/' + time)
@@ -54,6 +54,7 @@ class BaseNet(ABC, nn.Module):
         self.input_shape = input_shape
         self.kernel_size = kernel_size
         self.maxpool = maxpool
+        self.dropout = dropout
 
     @abstractmethod
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
@@ -128,7 +129,7 @@ class BaseNet(ABC, nn.Module):
         return test_loss, 100. * correct / len(test_loader.dataset)
 
 class Net(BaseNet):
-    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2):
+    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2, dropout=True):
         super(Net, self).__init__(batch_size, input_shape)
         torch.manual_seed(10)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size)
@@ -151,10 +152,14 @@ class Net(BaseNet):
     def forward(self, x):
         x = F.relu(self.maxpool1(self.conv1(x)))
         x = F.relu(self.conv2(x))
-        x = F.relu(self.maxpool2(self.conv3_drop(self.conv3(x))))
+        x = self.conv3(x)
+        if self.dropout:
+            self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
         x = x.view(-1, self.fc_input_size)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
+        if self.dropout:
+            x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
 
@@ -164,7 +169,10 @@ class Net(BaseNet):
         activation_list.append(x[0][:][:])
         x = F.relu(self.conv2(x))
         activation_list.append(x[0][:][:])
-        x = F.relu(self.maxpool2(self.conv3_drop(self.conv3(x))))
+        x = self.conv3(x)
+        if self.dropout:
+            self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
         activation_list.append(x[0][:][:])
         return activation_list
 
@@ -175,7 +183,7 @@ class Net(BaseNet):
         return super(Net, self).test_with_loader(test_loader)
 
 class OtherNet(BaseNet):
-    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2):
+    def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2, dropout=True):
         super(OtherNet, self).__init__(batch_size, input_shape)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size, padding=2)
         self.maxpool1 = nn.MaxPool2d(maxpool)
@@ -201,10 +209,14 @@ class OtherNet(BaseNet):
                     first = False
                 else:
                     a = torch.cat((a, xi_a), 1)
-        x = F.relu(self.maxpool2(self.conv2_drop(self.conv2(a))))
+        x = self.conv2(a)
+        if self.dropout:
+            x = self.conv2_drop(x)
+        x = F.relu(self.maxpool2(x))
         x = x.view(-1, self.fc_input_size)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
+        if self.dropout:
+            x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
 
@@ -221,7 +233,10 @@ class OtherNet(BaseNet):
                     first = False
                 else:
                     a = torch.cat((a, xi_a), 1)
-        x = self.maxpool2(self.conv2_drop(self.conv2(a)))
+        x = self.conv2(a)
+        if self.dropout:
+            x = self.conv2_drop(x)
+        x = F.relu(self.maxpool2(x))
         return int(np.prod(list(x.size())[1:]))
 
     def forward_return_activations(self, x):
@@ -239,7 +254,10 @@ class OtherNet(BaseNet):
                 else:
                     a = torch.cat((a, xi_a), 1)
         activation_list.append(a[0][:][:])
-        x = F.relu(self.maxpool2(self.conv2_drop(self.conv2(a))))
+        x = self.conv2(a)
+        if self.dropout:
+            x = self.conv2_drop(x)
+        x = F.relu(self.maxpool2(x))
         activation_list.append(x[0][:][:])
         return activation_list
 
@@ -252,7 +270,7 @@ class OtherNet(BaseNet):
 
 
 class GroupNet(BaseNet):
-    def __init__(self, batch_size, input_shape, kernel_size, maxpool=2):
+    def __init__(self, batch_size, input_shape, kernel_size, maxpool=2, dropout=True):
         super(GroupNet, self).__init__(batch_size, input_shape, kernel_size)
         self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size, padding=2)
         self.maxpool1 = nn.MaxPool2d(maxpool)
@@ -274,10 +292,14 @@ class GroupNet(BaseNet):
     def forward(self, x):
         x = F.relu(self.maxpool1(self.conv1(x)))
         x = F.relu(self.conv2(x))
-        x = F.relu(self.maxpool2(self.conv3_drop(self.conv3(x))))
+        x = self.conv3(x)
+        if self.dropout:
+            self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
         x = x.view(-1, self.fc_input_size)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
+        if self.dropout:
+            x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
 
@@ -287,7 +309,10 @@ class GroupNet(BaseNet):
         activation_list.append(x[0][:][:])
         x = F.relu(self.conv2(x))
         activation_list.append(x[0][:][:])
-        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        x = self.conv3(x)
+        if self.dropout:
+            self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
         activation_list.append(x[0][:][:])
         return activation_list
 
