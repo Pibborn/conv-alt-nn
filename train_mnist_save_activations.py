@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-from models import OtherNet, GroupNet, Net
+from models import OtherNet, GroupNet, Net, GroupNetRGB
 from viz_experiment import get_activations
 import argparse
 
@@ -40,7 +40,10 @@ model_parser = parser.add_mutually_exclusive_group(required=True)
 model_parser.add_argument('--other', action='store_true', default=False)
 model_parser.add_argument('--group', action='store_true', default=False)
 model_parser.add_argument('--net', action='store_true', default=False)
-
+model_parser.add_argument('--grouprgb', action='store_true', default=False)
+dataset_parser = parser.add_mutually_exclusive_group(required=True)
+dataset_parser.add_argument('--mnist', action='store_true', default=False)
+dataset_parser.add_argument('--cifar10', action='store_true', default=False)
 args = parser.parse_args()
 
 num_epochs = args.epochs
@@ -48,7 +51,10 @@ save_step = args.save_step
 kernel_size = args.kernel_size
 maxpool = 1 if args.disable_pool else 2
 dropout = not args.disable_dropout
-dataset = MNIST(args.batch_size)
+if args.cifar10:
+    dataset = CIFAR10(args.batch_size)
+else:
+    dataset = MNIST(args.batch_size)
 comment = args.comment
 if args.other:
     model_class = OtherNet
@@ -56,6 +62,8 @@ if args.group:
     model_class = GroupNet
 if args.net:
     model_class = Net
+if args.grouprgb:
+    model_class = GroupNetRGB
 print(args)
 model = model_class(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
                  maxpool=maxpool, dropout=dropout)
