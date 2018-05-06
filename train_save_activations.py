@@ -66,11 +66,13 @@ if args.net:
     model_class = Net
 if args.grouprgb:
     model_class = GroupNetRGB
-if args.otherrgb:
-    model_class = OtherNetRGB
-print(args)
 model = model_class(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
                  maxpool=maxpool, dropout=dropout)
+if args.otherrgb:
+    model = OtherNetRGB(dataset.batch_size, dataset.shape, kernel_size=kernel_size, m1=10, m2=30,
+                        maxpool=maxpool, dropout=dropout)
+print(args)
+
 path = './' + model.__class__.__name__ + '_' + comment
 optimizer = optim.SGD(model.parameters(), lr=args.lr,
         momentum=args.momentum)
