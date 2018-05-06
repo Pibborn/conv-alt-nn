@@ -103,6 +103,7 @@ class BaseNet(ABC, nn.Module):
     def get_linear_input_shape(self, last_conv_layer):
         if self.__class__.__name__ != 'OtherNet':
             f = last_conv_layer(Variable(torch.ones(1, *self.input_shape)))
+            print(f.size())
             return int(np.prod(f.size()[1:]))
         else:
             self.get_linear_input_shape(Variable(torch.ones(1, *self.input_shape)))
@@ -332,7 +333,15 @@ class GroupNetRGB(BaseNet):
         self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv3 = nn.Conv2d(27, 10, kernel_size=kernel_size)
         self.conv3_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(490, 50)
+        self.features = nn.Sequential(
+            self.conv1,
+            self.maxpool1,
+            self.conv2,
+            self.conv3,
+            self.maxpool2
+        )
+        self.fc_input_size = self.get_linear_input_shape(self.features)
+        self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
@@ -342,7 +351,7 @@ class GroupNetRGB(BaseNet):
         if self.dropout:
             self.conv3_drop(x)
         x = F.relu(self.maxpool2(x))
-        x = x.view(-1, 490)
+        x = x.view(-1, self.fc_input_size)
         x = F.relu(self.fc1(x))
         if self.dropout:
             x = F.dropout(x, training=self.training)
