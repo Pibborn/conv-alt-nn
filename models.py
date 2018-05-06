@@ -6,7 +6,7 @@ import numpy as np
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 from tensorboardX import SummaryWriter
@@ -324,52 +324,49 @@ class GroupNet(BaseNet):
 
 
 class GroupNetRGB(BaseNet):
-    def __init__(self, batch_size, input_shape):
+    def __init__(self, batch_size, input_shape, kernel_size, maxpool=2, dropout=True):
         super(GroupNetRGB, self).__init__(batch_size, input_shape, kernel_size)
         self.conv1 = nn.Conv2d(3, 9, kernel_size=kernel_size, padding=0, groups=3, stride=1)
-        #for convmat in self.conv1.weight:
-        convmat = torch.zeros(self.conv1.weight.size())
-        convmat[:, :, 3//2, 3//2] = 1
-        self.conv1.weight = torch.nn.Parameter(convmat)
-        self.conv1.bias = torch.nn.Parameter(torch.zeros(self.conv1.bias.size()))
+        self.maxpool1 = nn.MaxPool2d(maxpool)
         self.conv2 = nn.Conv2d(9, 27, kernel_size=kernel_size, stride=1, padding=2, groups=3)
+        self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv3 = nn.Conv2d(27, 10, kernel_size=kernel_size)
         self.conv3_drop = nn.Dropout2d()
         self.fc1 = nn.Linear(490, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.maxpool1(self.conv1(x)))
         x = F.relu(self.conv2(x))
-        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
+        x = self.conv3(x)
+        if self.dropout:
+            self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
         x = x.view(-1, 490)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
+        if self.dropout:
+            x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
 
-    def forward_return_activations(self, x):
+    def test_connectivity(self, x):
+        convmat = torch.zeros(self.conv1.weight.size())
+        convmat[:, :, 3//2, 3//2] = 1
+        self.conv1.weight = torch.nn.Parameter(convmat)
+        self.conv1.bias = torch.nn.Parameter(torch.zeros(self.conv1.bias.size()))
         activation_list = []
         x = F.relu(self.conv1(x))
-        print(x.size())
         fig = plt.figure()
         for i, slice in enumerate(x[0][:][:][:]):
             slice = slice.data.numpy()
-            print(slice)
             slice = np.ravel(slice, order='C')
             slice = slice.reshape((30, 30), order='F')
             ax = fig.add_subplot(3, 3, i+1)
             ax.set_title('Slice {}'.format(i))
             ax.imshow(slice)
-        plt.show()
-        activation_list.append(x[0][:][:])
-        x = F.relu(self.conv2(x))
-        activation_list.append(x[0][:][:])
-        x = F.relu(F.max_pool2d(self.conv3_drop(self.conv3(x)), 2))
-        activation_list.append(x[0][:][:])
-        return activation_list
+        plt.show(True)
 
-    def train_with_loader(self, train_loader, optimizer, num_epochs=10):
+    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
         return super(GroupNetRGB, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
 
     def test_with_loader(self, test_loader):

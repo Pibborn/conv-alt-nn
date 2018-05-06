@@ -44,12 +44,14 @@ def connectivity_experiment():
     image = create_probe_image(32)
     image = torch.from_numpy(image).contiguous().float()
     #sys.exit(1)
-    path = './groupnetrgb.torch'
-    model = GroupNetRGB()
-    model.forward_return_activations(Variable(image.view(1, 3, 32, 32)))
+    path = 'saved-models/groupnetrgb.torch'
+    model = GroupNetRGB(1, (3, 32, 32), 3)
+    model.test_connectivity(Variable(image.view(1, 3, 32, 32)))
 
 
 if __name__ == '__main__':
+    connectivity_experiment()
+    sys.exit(1)
     torch.manual_seed(2)
     model = OtherNet(8, (1, 28, 28), kernel_size=3, maxpool=1)
     dataset = MNIST(8)
