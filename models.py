@@ -102,7 +102,6 @@ class BaseNet(ABC, nn.Module):
     def get_linear_input_shape(self, last_conv_layer):
         if self.__class__.__name__ != 'OtherNet':
             f = last_conv_layer(Variable(torch.ones(1, *self.input_shape)))
-            print(f.size())
             return int(np.prod(f.size()[1:]))
         else:
             raise NotImplementedError('Use the specific class method for OtherNet.')
@@ -174,12 +173,6 @@ class Net(BaseNet):
         x = F.relu(self.maxpool2(x))
         activation_list.append(x[0][:][:])
         return activation_list
-
-    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
-        return super(Net, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
-
-    def test_with_loader(self, test_loader):
-        return super(Net, self).test_with_loader(test_loader)
 
 class OtherNet(BaseNet):
     def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2, dropout=True):
@@ -260,13 +253,6 @@ class OtherNet(BaseNet):
         activation_list.append(x[0][:][:])
         return activation_list
 
-    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
-        return super(OtherNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
-
-    def test_with_loader(self, test_loader):
-        return super(OtherNet, self).test_with_loader(test_loader)
-
-
 
 class GroupNet(BaseNet):
     def __init__(self, batch_size, input_shape, kernel_size, maxpool=2, dropout=True):
@@ -315,12 +301,6 @@ class GroupNet(BaseNet):
         activation_list.append(x[0][:][:])
         return activation_list
 
-    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
-        return super(GroupNet, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
-
-    def test_with_loader(self, test_loader):
-        return super(GroupNet, self).test_with_loader(test_loader)
-
 
 class GroupNetRGB(BaseNet):
     def __init__(self, batch_size, input_shape, kernel_size, maxpool=2, dropout=True):
@@ -338,7 +318,7 @@ class GroupNetRGB(BaseNet):
             self.conv3,
             self.maxpool2
         )
-        self.fc_input_size = self.othernet_get_linear_input_shape(self.features)
+        self.fc_input_size = self.get_linear_input_shape(self.features)
         self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
@@ -372,12 +352,6 @@ class GroupNetRGB(BaseNet):
             ax.set_title('Slice {}'.format(i))
             ax.imshow(slice)
         plt.show(True)
-
-    def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
-        return super(GroupNetRGB, self).train_with_loader(train_loader, test_loader, optimizer, num_epochs=num_epochs)
-
-    def test_with_loader(self, test_loader):
-        return super(GroupNetRGB, self).test_with_loader(test_loader)
 
 class OtherNetRGB(BaseNet):
     def __init__(self, batch_size, input_shape, m1=3, m2=3, kernel_size=3, maxpool=2, dropout=True):
