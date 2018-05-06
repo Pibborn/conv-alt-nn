@@ -56,7 +56,6 @@ class BaseNet(ABC, nn.Module):
         self.maxpool = maxpool
         self.dropout = dropout
 
-    @abstractmethod
     def train_with_loader(self, train_loader, test_loader, optimizer, num_epochs=10):
         self.train()
         if CUDA_AVAILABLE:
@@ -106,10 +105,9 @@ class BaseNet(ABC, nn.Module):
             print(f.size())
             return int(np.prod(f.size()[1:]))
         else:
-            self.get_linear_input_shape(Variable(torch.ones(1, *self.input_shape)))
+            raise NotImplementedError('Use the specific class method for OtherNet.')
 
 
-    @abstractmethod
     def test_with_loader(self, test_loader):
         self.eval()
         test_loss = 0
@@ -340,7 +338,7 @@ class GroupNetRGB(BaseNet):
             self.conv3,
             self.maxpool2
         )
-        self.fc_input_size = self.get_linear_input_shape(self.features)
+        self.fc_input_size = self.othernet_get_linear_input_shape(self.features)
         self.fc1 = nn.Linear(self.fc_input_size, 50)
         self.fc2 = nn.Linear(50, 10)
 
@@ -380,6 +378,120 @@ class GroupNetRGB(BaseNet):
 
     def test_with_loader(self, test_loader):
         return super(GroupNetRGB, self).test_with_loader(test_loader)
+
+class OtherNetRGB(BaseNet):
+    def __init__(self, batch_size, input_shape, m1=3, m2=3, kernel_size=3, maxpool=2, dropout=True):
+        super(OtherNetRGB, self).__init__(batch_size, input_shape)
+        self.m1 = m1
+        self.m2 = m2
+        self.conv1_list = torch.nn.ModuleList()
+        for i in range(m1):
+            self.conv1_list.append(nn.Conv2d(3, 3, kernel_size=kernel_size, padding=int(kernel_size/2)))
+        self.maxpool1 = nn.MaxPool2d(maxpool)
+        self.conv2_list = torch.nn.ModuleList()
+        for i in range(m2):
+            self.conv2_list.append(nn.Conv2d(3, 3, kernel_size=kernel_size, padding=int(kernel_size/2)))
+        self.conv3 = nn.Conv2d(150, 20, kernel_size=5)
+        self.maxpool2 = nn.MaxPool2d(maxpool)
+        self.conv3_drop = nn.Dropout2d()
+        self.fc_input_size = self.othernetrgb_get_linear_input_shape()
+        self.fc1 = nn.Linear(self.fc_input_size, 50)
+        self.fc2 = nn.Linear(50, 10)
+
+    def forward(self, x):
+        a = torch.autograd.Variable(torch.ones(1))
+        first = True
+        for i in range(self.m1):
+            for xi in x.split(3, dim=1):
+                xi_a = F.relu(self.conv1_list[i](xi))
+                if first:
+                    a = xi_a
+                    first = False
+                else:
+                    a = torch.cat((a, xi_a), 1)
+        a2 = torch.autograd.Variable(torch.ones(1))
+        first = True
+        for i in range(self.m2):
+            for xi in a.split(3, dim=1):
+                xi_a = F.relu(self.conv2_list[i](xi))
+                if first:
+                    a2 = xi_a
+                    first = False
+                else:
+                    a2 = torch.cat((a2, xi_a), 1)
+        x = a2
+        if self.dropout:
+            x = self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
+        x = x.view(-1, self.fc_input_size)
+        x = F.relu(self.fc1(x))
+        if self.dropout:
+            x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return F.log_softmax(x)
+
+    def forward_return_activations(self, x):
+        a = torch.autograd.Variable(torch.ones(1))
+        first = True
+        for i in range(self.m1):
+            for xi in x.split(3, dim=1):
+                xi_a = F.relu(self.conv1_list[i](xi))
+                if first:
+                    a = xi_a
+                    first = False
+                else:
+                    a = torch.cat((a, xi_a), 1)
+        activation_list.append(a[0][:][:])
+        first = True
+        a2 = torch.autograd.Variable(torch.ones(1))
+        for i in range(self.m2):
+            for xi in a.split(3, dim=1):
+                xi_a = F.relu(self.conv2_list[i](xi))
+                if first:
+                    a2 = xi_a
+                    first = False
+                else:
+                    a2 = torch.cat((a2, xi_a), 1)
+        activation_list.append(a2[0][:][:])
+        x = a2
+        x = self.conv3(x)
+        if self.dropout:
+            x = self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
+        x = x.view(-1, self.fc_input_size)
+        x = F.relu(self.fc1(x))
+        if self.dropout:
+            x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return F.log_softmax(x)
+
+    def othernetrgb_get_linear_input_shape(self):
+        x = torch.autograd.Variable(torch.ones(self.batch_size, *self.input_shape))
+        a = torch.autograd.Variable(torch.ones(1))
+        first = True
+        for i in range(self.m1):
+            for xi in x.split(3, dim=1):
+                xi_a = F.relu(self.conv1_list[i](xi))
+                if first:
+                    a = xi_a
+                    first = False
+                else:
+                    a = torch.cat((a, xi_a), 1)
+        a2 = torch.autograd.Variable(torch.ones(1))
+        first = True
+        for i in range(self.m2):
+            for xi in a.split(3, dim=1):
+                xi_a = F.relu(self.conv2_list[i](xi))
+                if first:
+                    a2 = xi_a
+                    first = False
+                else:
+                    a2 = torch.cat((a2, xi_a), 1)
+        x = a2
+        if self.dropout:
+            x = self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
+        return int(np.prod(list(x.size())[1:]))
 
 
 def get_activations(model, image):

@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-from models import OtherNet, GroupNet, Net, GroupNetRGB
+from models import OtherNet, GroupNet, Net, GroupNetRGB, OtherNetRGB
 from viz_experiment import get_activations
 import argparse
 
@@ -41,6 +41,8 @@ model_parser.add_argument('--other', action='store_true', default=False)
 model_parser.add_argument('--group', action='store_true', default=False)
 model_parser.add_argument('--net', action='store_true', default=False)
 model_parser.add_argument('--grouprgb', action='store_true', default=False)
+model_parser.add_argument('--otherrgb', action='store_true', default=False)
+
 dataset_parser = parser.add_mutually_exclusive_group(required=True)
 dataset_parser.add_argument('--mnist', action='store_true', default=False)
 dataset_parser.add_argument('--cifar10', action='store_true', default=False)
@@ -64,6 +66,8 @@ if args.net:
     model_class = Net
 if args.grouprgb:
     model_class = GroupNetRGB
+if args.otherrgb:
+    model_class = OtherNetRGB
 print(args)
 model = model_class(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
                  maxpool=maxpool, dropout=dropout)
