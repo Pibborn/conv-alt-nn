@@ -392,7 +392,7 @@ class OtherNetRGB(BaseNet):
         first = True
         for i in range(self.m1):
             for xi in x.split(3, dim=1):
-                xi_a = F.relu(self.conv1_list[i](xi))
+                xi_a = F.relu(self.maxpool1(self.conv1_list[i](xi)))
                 if first:
                     a = xi_a
                     first = False
@@ -426,7 +426,7 @@ class OtherNetRGB(BaseNet):
         first = True
         for i in range(self.m1):
             for xi in x.split(3, dim=1):
-                xi_a = F.relu(self.conv1_list[i](xi))
+                xi_a = F.relu(self.maxpool1(self.conv1_list[i](xi)))
                 if first:
                     a = xi_a
                     first = False
