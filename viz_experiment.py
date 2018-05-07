@@ -16,7 +16,10 @@ def get_activations(model, image, path=None, other=False):
         for j, act in enumerate(layer_act.split(split_depth, dim=0)): # attivazioni in un layer
             ax1 = fig.add_subplot(int(len(act_list[i])/5)+1, 6,j+1)
             activation = act.data.cpu().numpy()
-            activation = np.reshape(activation, activation.shape[::-1])
+            if other:
+                activation = np.reshape(activation, activation.shape[::-1])
+            else:
+                activation = np.reshape(activation, activation.shape[:-1])
             ax1.imshow(activation, cmap='gray', shape=activation.shape)
             ax1.axis('off')
             ax1.set_xticklabels([])
