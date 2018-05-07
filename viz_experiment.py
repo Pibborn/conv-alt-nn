@@ -13,7 +13,7 @@ def get_activations(model, image, path=None):
     for i, layer_act in enumerate(act_list): # numero layer
         fig = plt.figure(figsize=(15, 15))
         for j, act in enumerate(layer_act): # attivazioni in un layer
-            ax1 = fig.add_subplot(int(len(act_list[i])/5), 5,j+1)
+            ax1 = fig.add_subplot(int(len(act_list[i])/5)+1, 6,j+1)
             activation = act.data.cpu().numpy()
             ax1.matshow(activation, cmap='gray', shape=activation.shape)
             ax1.axis('off')

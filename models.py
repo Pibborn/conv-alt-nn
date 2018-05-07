@@ -373,12 +373,12 @@ class OtherNetRGB(BaseNet):
         self.m2 = m2
         self.conv1_list = torch.nn.ModuleList()
         for i in range(m1):
-            self.conv1_list.append(nn.Conv2d(3, 3, kernel_size=kernel_size, padding=int(kernel_size/2)))
+            self.conv1_list.append(nn.Conv2d(3, 3, kernel_size=kernel_size, padding=int(kernel_size/2), groups=3))
         self.maxpool1 = nn.MaxPool2d(maxpool)
         self.conv2_list = torch.nn.ModuleList()
         for i in range(m2):
-            self.conv2_list.append(nn.Conv2d(3, 3, kernel_size=kernel_size, padding=int(kernel_size/2)))
-        self.conv3 = nn.Conv2d(600, 20, kernel_size=5)
+            self.conv2_list.append(nn.Conv2d(3, 3, kernel_size=kernel_size, padding=int(kernel_size/2), groups=3))
+        self.conv3 = nn.Conv2d(600, 20, kernel_size=3)
         self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv3_drop = nn.Dropout2d()
         self.fc_input_size = self.othernetrgb_get_linear_input_shape()
