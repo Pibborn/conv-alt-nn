@@ -290,7 +290,7 @@ class GroupNet(BaseNet):
 
     def forward_return_activations(self, x):
         activation_list = []
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(self.maxpool1(self.conv1(x), 2))
         activation_list.append(x[0][:][:])
         x = F.relu(self.conv2(x))
         activation_list.append(x[0][:][:])
@@ -336,6 +336,19 @@ class GroupNetRGB(BaseNet):
         x = self.fc2(x)
         return F.log_softmax(x)
 
+    def forward_return_activations(self, x):
+        activation_list = []
+        x = F.relu(self.maxpool1(self.conv1(x)))
+        activation_list.append(x[0][:][:])
+        x = F.relu(self.conv2(x))
+        activation_list.append(x[0][:][:])
+        x = self.conv3(x)
+        if self.dropout:
+            self.conv3_drop(x)
+        x = F.relu(self.maxpool2(x))
+        activation_list.append(x[0][:][:])
+        return activation_list
+
     def test_connectivity(self, x):
         convmat = torch.zeros(self.conv1.weight.size())
         convmat[:, :, 3//2, 3//2] = 1
@@ -365,7 +378,7 @@ class OtherNetRGB(BaseNet):
         self.conv2_list = torch.nn.ModuleList()
         for i in range(m2):
             self.conv2_list.append(nn.Conv2d(3, 3, kernel_size=kernel_size, padding=int(kernel_size/2)))
-        self.conv3 = nn.Conv2d(150, 20, kernel_size=5)
+        self.conv3 = nn.Conv2d(600, 20, kernel_size=5)
         self.maxpool2 = nn.MaxPool2d(maxpool)
         self.conv3_drop = nn.Dropout2d()
         self.fc_input_size = self.othernetrgb_get_linear_input_shape()
@@ -394,6 +407,7 @@ class OtherNetRGB(BaseNet):
                 else:
                     a2 = torch.cat((a2, xi_a), 1)
         x = a2
+        x = self.conv3(x)
         if self.dropout:
             x = self.conv3_drop(x)
         x = F.relu(self.maxpool2(x))
@@ -405,6 +419,7 @@ class OtherNetRGB(BaseNet):
         return F.log_softmax(x)
 
     def forward_return_activations(self, x):
+        activation_list = []
         a = torch.autograd.Variable(torch.ones(1))
         first = True
         for i in range(self.m1):
@@ -432,12 +447,8 @@ class OtherNetRGB(BaseNet):
         if self.dropout:
             x = self.conv3_drop(x)
         x = F.relu(self.maxpool2(x))
-        x = x.view(-1, self.fc_input_size)
-        x = F.relu(self.fc1(x))
-        if self.dropout:
-            x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.log_softmax(x)
+        activation_list.append(x[0][:][:])
+        return activation_list
 
     def othernetrgb_get_linear_input_shape(self):
         x = torch.autograd.Variable(torch.ones(self.batch_size, *self.input_shape))
@@ -462,6 +473,7 @@ class OtherNetRGB(BaseNet):
                 else:
                     a2 = torch.cat((a2, xi_a), 1)
         x = a2
+        x = self.conv3(x)
         if self.dropout:
             x = self.conv3_drop(x)
         x = F.relu(self.maxpool2(x))

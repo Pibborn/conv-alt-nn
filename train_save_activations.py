@@ -59,17 +59,19 @@ else:
     dataset = MNIST(args.batch_size)
 comment = args.comment
 if args.other:
-    model_class = OtherNet
+    model = OtherNet(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
+                 maxpool=maxpool, dropout=dropout)
 if args.group:
-    model_class = GroupNet
+    model = GroupNet(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
+                 maxpool=maxpool, dropout=dropout)
 if args.net:
-    model_class = Net
+    model = Net(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
+                 maxpool=maxpool, dropout=dropout)
 if args.grouprgb:
-    model_class = GroupNetRGB
-model = model_class(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
+    model = GroupNetRGB(dataset.batch_size, dataset.shape, kernel_size=kernel_size,
                  maxpool=maxpool, dropout=dropout)
 if args.otherrgb:
-    model = OtherNetRGB(dataset.batch_size, dataset.shape, kernel_size=kernel_size, m1=10, m2=30,
+    model = OtherNetRGB(dataset.batch_size, dataset.shape, kernel_size=kernel_size, m1=10, m2=20,
                         maxpool=maxpool, dropout=dropout)
 print(args)
 
