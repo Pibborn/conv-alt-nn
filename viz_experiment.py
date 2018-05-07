@@ -19,6 +19,7 @@ def get_activations(model, image, path=None, other=False):
             if other:
                 activation = np.reshape(activation, activation.shape[::-1])
             else:
+                activation = np.reshape(activation, activation.shape[::-1])
                 activation = np.reshape(activation, activation.shape[:-1])
             ax1.imshow(activation, cmap='gray', shape=activation.shape)
             ax1.axis('off')
