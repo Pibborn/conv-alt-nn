@@ -8,14 +8,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datasets import MNIST
 
-def get_activations(model, image, path=None):
+def get_activations(model, image, path=None, other=False):
     act_list = model.forward_return_activations(image)
     for i, layer_act in enumerate(act_list): # numero layer
         fig = plt.figure(figsize=(15, 15))
-        for j, act in enumerate(layer_act): # attivazioni in un layer
+        split_depth = 3 if other else 1
+        for j, act in enumerate(layer_act.split(split_depth, dim=0)): # attivazioni in un layer
             ax1 = fig.add_subplot(int(len(act_list[i])/5)+1, 6,j+1)
             activation = act.data.cpu().numpy()
-            ax1.matshow(activation, cmap='gray', shape=activation.shape)
+            activation = np.reshape(activation, activation.shape[::-1])
+            ax1.imshow(activation, cmap='gray', shape=activation.shape)
             ax1.axis('off')
             ax1.set_xticklabels([])
             ax1.set_yticklabels([])
@@ -23,7 +25,8 @@ def get_activations(model, image, path=None):
             plt.savefig(model.__class__.__name__ + '_activations_layer_' + (str(i)) + '.png')
         else:
             plt.savefig(path + '_activations_layer_' + (str(i)) + '.png')
-
+        if other and i == 1:
+            break
 
 def create_probe_image(size, show=False):
     red = np.zeros((size, size))

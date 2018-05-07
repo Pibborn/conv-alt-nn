@@ -84,4 +84,4 @@ for i in range(int(num_epochs/save_step)):
     torch.save(model.state_dict(), model_path)
     img = dataset.get_random_examples(1)
     img_path = path + '_epoch_' + str((i+1) * save_step)
-    get_activations(model, img, path = img_path)
+    get_activations(model, img, path = img_path, other = args.otherrgb)

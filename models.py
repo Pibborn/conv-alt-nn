@@ -79,6 +79,8 @@ class BaseNet(ABC, nn.Module):
                 self.writer.add_scalar('test_loss', self.test_random_batch(test_loader),
                                        global_step=self.global_step)
                 self.global_step += 1
+                break
+            break
             print('Training set:')
             train_loss, train_accuracy = self.test_with_loader(train_loader)
             print('Test set:')
