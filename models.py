@@ -130,7 +130,7 @@ class Net(BaseNet):
     def __init__(self, batch_size, input_shape, kernel_size=3, maxpool=2, dropout=True):
         super(Net, self).__init__(batch_size, input_shape)
         torch.manual_seed(10)
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=kernel_size)
+        self.conv1 = nn.Conv2d(input_shape[0], 10, kernel_size=kernel_size)
         self.maxpool1 = nn.MaxPool2d(maxpool)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=kernel_size)
         self.conv3 = nn.Conv2d(20, 50, kernel_size=kernel_size)
