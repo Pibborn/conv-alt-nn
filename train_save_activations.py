@@ -75,7 +75,7 @@ if args.otherrgb:
                         maxpool=maxpool, dropout=dropout)
 print(args)
 
-path = './' + model.__class__.__name__ + '_' + comment
+path = './' + model.__class__.__name__ + '_' + dataset.__class__.__name__ + '_' + comment
 optimizer = optim.SGD(model.parameters(), lr=args.lr,
         momentum=args.momentum)
 for i in range(int(num_epochs/save_step)):
